@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EVG Universal – Cadastro de Voluntários</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            evg: {
+              blue: '#1e3a5f',
+              dark: '#0f2744',
+              red: '#c41e3a',
+              light: '#f0f4f8'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .sidebar-link.active { background-color: #1e3a5f; color: white; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid #1e3a5f; outline-offset: 1px; }
+  </style>
+</head>
+<body class="bg-evg-light text-gray-800 font-sans">
+
+  <!-- LOGIN -->
+  <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-evg-dark to-evg-blue p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-evg-blue text-white text-2xl font-bold mb-4">EVG</div>
+        <h1 class="text-2xl font-bold text-evg-blue">Cadastro de Voluntários</h1>
+        <p class="text-gray-500 text-sm mt-1">Grupo de Evangelização Universal</p>
+      </div>
+
+      <form id="login-form" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+          <input type="email" id="login-user" required
+                 class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-evg-blue"
+                 placeholder="seu@email.com" autocomplete="username">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+          <input type="password" id="login-pass" required
+                 class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-evg-blue"
+                 placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div id="login-error" class="hidden text-red-600 text-sm text-center"></div>
+        <button type="submit"
+                class="w-full bg-evg-blue hover:bg-evg-dark text-white font-semibold py-3 rounded-lg transition">
+          Entrar
+        </button>
+      </form>
+
+      <p class="text-xs text-gray-400 text-center mt-6">
+        Acesso com e-mail e senha cadastrados no sistema<br>
+        (Thiago, Juliana e coordenadores)
+      </p>
+    </div>
+  </div>
+
+  <!-- APP PRINCIPAL -->
+  <div id="app" class="hidden min-h-screen flex">
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-evg-dark text-white flex flex-col fixed h-full z-20">
+      <div class="p-5 border-b border-white/10">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-evg-red flex items-center justify-center font-bold text-sm">EVG</div>
+          <div>
+            <div class="font-semibold text-sm">EVG Universal</div>
+            <div class="text-xs text-white/60" id="user-role">—</div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="flex-1 p-3 space-y-1">
+        <!-- Menu gestão (Thiago / Juliana) -->
+        <div id="menu-gestao">
+          <button onclick="showPage('dashboard')" data-page="dashboard"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>📊</span> Dashboard
+          </button>
+          <button onclick="showPage('voluntarios')" data-page="voluntarios"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>👥</span> Voluntários
+          </button>
+          <button onclick="showPage('novo')" data-page="novo"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>➕</span> Novo Cadastro
+          </button>
+          <button onclick="showPage('atendimento')" data-page="atendimento"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>🗣️</span> Atendimento
+          </button>
+          <button onclick="showPage('projetos')" data-page="projetos"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>📁</span> Projetos
+          </button>
+          <button onclick="showPage('relatorios-grupos')" data-page="relatorios-grupos"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>📋</span> Relatórios dos Grupos
+          </button>
+        </div>
+        <!-- Menu só coordenador -->
+        <div id="menu-coordenador" class="hidden">
+          <button onclick="showPage('form-grupo')" data-page="form-grupo"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>📋</span> Acompanhamento do Grupo
+          </button>
+        </div>
+      </nav>
+
+      <div class="p-4 border-t border-white/10">
+        <div class="text-xs text-white/50 mb-2" id="user-name">—</div>
+        <button onclick="logout()" class="w-full text-left text-sm text-red-300 hover:text-red-200 flex items-center gap-2">
+          🚪 Sair
+        </button>
+      </div>
+    </aside>
+
+    <!-- CONTEÚDO -->
+    <main class="flex-1 ml-64 p-6">
+      <!-- DASHBOARD -->
+      <div id="page-dashboard" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-6">Dashboard</h1>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+          <div class="bg-white rounded-xl shadow p-5 border-l-4 border-evg-blue">
+            <div class="text-sm text-gray-500">Total de Voluntários</div>
+            <div class="text-3xl font-bold text-evg-blue mt-1" id="stat-total">0</div>
+          </div>
+          <div class="bg-white rounded-xl shadow p-5 border-l-4 border-green-500">
+            <div class="text-sm text-gray-500">Ativos</div>
+            <div class="text-3xl font-bold text-green-600 mt-1" id="stat-ativos">0</div>
+          </div>
+          <div class="bg-white rounded-xl shadow p-5 border-l-4 border-gray-400">
+            <div class="text-sm text-gray-500">Arquivados</div>
+            <div class="text-3xl font-bold text-gray-600 mt-1" id="stat-arquivados">0</div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow p-5">
+          <h2 class="font-semibold text-lg mb-4">Últimos cadastros</h2>
+          <div id="ultimos-cadastros" class="space-y-2 text-sm"></div>
+        </div>
+      </div>
+
+      <!-- LISTA DE VOLUNTÁRIOS -->
+      <div id="page-voluntarios" class="page hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h1 class="text-2xl font-bold text-evg-blue">Voluntários</h1>
+          <button onclick="showPage('novo')" class="bg-evg-blue hover:bg-evg-dark text-white px-4 py-2 rounded-lg text-sm font-medium">
+            + Novo Cadastro
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow p-4 mb-4 flex flex-col sm:flex-row gap-3">
+          <input type="text" id="busca" placeholder="Buscar por nome, telefone ou CPF..."
+                 class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm"
+                 oninput="filtrarVoluntarios()">
+          <select id="filtro-projeto" class="px-4 py-2 border border-gray-300 rounded-lg text-sm" onchange="filtrarVoluntarios()">
+            <option value="">Todos os projetos</option>
+          </select>
+          <select id="filtro-status" class="px-4 py-2 border border-gray-300 rounded-lg text-sm" onchange="filtrarVoluntarios()">
+            <option value="todos">Todos</option>
+            <option value="ativo">Ativos</option>
+            <option value="arquivado">Arquivados</option>
+          </select>
+        </div>
+
+        <div class="bg-white rounded-xl shadow overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-evg-blue text-white">
+                <tr>
+                  <th class="text-left px-4 py-3">Nome</th>
+                  <th class="text-left px-4 py-3">Telefone</th>
+                  <th class="text-left px-4 py-3">Projeto Principal</th>
+                  <th class="text-left px-4 py-3">Função</th>
+                  <th class="text-left px-4 py-3">Status</th>
+                  <th class="text-left px-4 py-3">Último Atendimento</th>
+                  <th class="text-right px-4 py-3">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-voluntarios" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+          <div id="sem-resultados" class="hidden p-8 text-center text-gray-500">Nenhum voluntário encontrado.</div>
+        </div>
+      </div>
+
+      <!-- NOVO / EDITAR CADASTRO -->
+      <div id="page-novo" class="page hidden">
+        <div class="flex items-center justify-between mb-6">
+          <h1 class="text-2xl font-bold text-evg-blue" id="form-title">Novo Cadastro de Voluntário</h1>
+          <button onclick="showPage('voluntarios')" class="text-sm text-gray-500 hover:text-evg-blue">← Voltar</button>
+        </div>
+
+        <form id="form-voluntario" class="bg-white rounded-xl shadow p-6 space-y-8">
+          <input type="hidden" id="edit-id">
+
+          <!-- Dados da Igreja -->
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">Dados da Igreja</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Igreja</label>
+                <input type="text" id="igreja" class="w-full px-3 py-2 border rounded-lg text-sm" value="Vicente de Carvalho">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Região</label>
+                <input type="text" id="regiao" class="w-full px-3 py-2 border rounded-lg text-sm" value="Guarujá">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Bloco</label>
+                <input type="text" id="bloco" class="w-full px-3 py-2 border rounded-lg text-sm" value="Santos">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Estado</label>
+                <input type="text" id="estado" class="w-full px-3 py-2 border rounded-lg text-sm" value="São Paulo">
+              </div>
+            </div>
+          </section>
+
+          <!-- Dados Pessoais -->
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">Dados Pessoais</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium mb-1">Nome completo *</label>
+                <input type="text" id="nome" required class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Data de nascimento</label>
+                <input type="date" id="nascimento" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Tel / WhatsApp *</label>
+                <input type="text" id="telefone" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="(13) 99999-9999">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">RG / CIN</label>
+                <input type="text" id="rg" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">CPF</label>
+                <input type="text" id="cpf" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="000.000.000-00">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium mb-1">Endereço</label>
+                <input type="text" id="endereco" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Nº</label>
+                <input type="text" id="numero" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Bairro</label>
+                <input type="text" id="bairro" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Cidade</label>
+                <input type="text" id="cidade" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">UF</label>
+                <input type="text" id="uf" class="w-full px-3 py-2 border rounded-lg text-sm" maxlength="2">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">CEP</label>
+                <input type="text" id="cep" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Com quem mora?</label>
+                <input type="text" id="com_quem_mora" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Estado civil</label>
+                <select id="estado_civil" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="">Selecione</option>
+                  <option>Solteiro(a)</option>
+                  <option>Casado(a)</option>
+                  <option>Divorciado(a)</option>
+                  <option>Viúvo(a)</option>
+                  <option>União estável</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Cônjuge é da IURD?</label>
+                <select id="conjuge_iurd" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="">—</option>
+                  <option>Sim</option>
+                  <option>Não</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Tem filhos?</label>
+                <select id="tem_filhos" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="">—</option>
+                  <option>Sim</option>
+                  <option>Não</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Quantos filhos?</label>
+                <input type="number" id="qtd_filhos" min="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Estuda atualmente?</label>
+                <select id="estuda" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="">—</option>
+                  <option>Sim</option>
+                  <option>Não</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Escolaridade</label>
+                <input type="text" id="escolaridade" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Profissão</label>
+                <input type="text" id="profissao" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Empresa</label>
+                <input type="text" id="empresa" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+            </div>
+          </section>
+
+          <!-- Foto -->
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">Foto</h2>
+            <div class="flex items-center gap-6">
+              <div id="foto-preview" class="w-28 h-28 rounded-full bg-gray-200 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+                <span class="text-gray-400 text-xs text-center">Sem foto</span>
+              </div>
+              <div>
+                <input type="file" id="foto" accept="image/*" class="text-sm" onchange="previewFoto(event)">
+                <p class="text-xs text-gray-500 mt-1">JPG ou PNG • Máx. 2MB</p>
+                <button type="button" onclick="removerFoto()" class="text-xs text-red-500 mt-1 hover:underline">Remover foto</button>
+              </div>
+            </div>
+            <input type="hidden" id="foto_base64">
+          </section>
+
+          <!-- Dados Espirituais -->
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">Dados Espirituais</h2>
+            
+            <div class="mb-4">
+              <p class="text-sm font-medium mb-2">Tipo / Classificação</p>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="tipo_voluntario" class="rounded"> Voluntário / Evangelista
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="tipo_cpo" class="rounded"> CPO
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="tipo_colaborador" class="rounded"> Colaborador
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="tipo_obreiro" class="rounded"> Obreiro
+                </label>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Função no EVG *</label>
+                <select id="funcao_evg" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="">Selecione</option>
+                  <option value="Evangelista">Evangelista (Voluntário)</option>
+                  <option value="Obreiro">Obreiro</option>
+                  <option value="Coordenador de Projeto">Coordenador de Projeto</option>
+                  <option value="Coordenador Geral">Coordenador Geral</option>
+                  <option value="Secretária">Secretária</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">É Coordenador de algum projeto?</label>
+                <select id="eh_coordenador" class="w-full px-3 py-2 border rounded-lg text-sm" onchange="toggleCoordProjeto()">
+                  <option value="Não">Não</option>
+                  <option value="Sim">Sim</option>
+                </select>
+              </div>
+              <div id="campo-coord-projeto" class="hidden">
+                <label class="block text-sm font-medium mb-1">Coordenador de qual projeto?</label>
+                <select id="coordenador_de" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="">Selecione o projeto</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Data de início na IURD</label>
+                <input type="date" id="inicio_iurd" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Data de início no EVG</label>
+                <input type="date" id="inicio_evg" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Posição / Observação da função</label>
+                <input type="text" id="posicao" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: Apoio, Líder de célula...">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Batizado nas águas?</label>
+                <select id="batizado_aguas" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="">—</option>
+                  <option>Sim</option>
+                  <option>Não</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Data batismo águas</label>
+                <input type="date" id="data_batismo_aguas" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Batizado no Espírito Santo?</label>
+                <select id="batizado_espirito" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="">—</option>
+                  <option>Sim</option>
+                  <option>Não</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Data batismo Espírito</label>
+                <input type="date" id="data_batismo_espirito" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+            </div>
+          </section>
+
+          <!-- Projetos -->
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">Projetos que faz parte</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" id="projetos-checkboxes"></div>
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+              <div>
+                <label class="block text-sm font-medium mb-1">Projeto principal</label>
+                <select id="projeto_principal" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="">Selecione</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Coordenador do projeto</label>
+                <input type="text" id="coordenador_projeto" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Nome do coordenador do projeto">
+              </div>
+            </div>
+          </section>
+
+          <!-- Testemunho -->
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">Testemunho</h2>
+            <textarea id="testemunho" rows="4" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Breve testemunho..."></textarea>
+          </section>
+
+          <!-- Observações + Status -->
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">Controle</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Observações internas</label>
+                <textarea id="observacoes" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Status</label>
+                <select id="status" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="ativo">Ativo</option>
+                  <option value="arquivado">Arquivado</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <div class="flex gap-3 pt-4 border-t">
+            <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
+              Salvar Cadastro
+            </button>
+            <button type="button" onclick="showPage('voluntarios')" class="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- DETALHE DO VOLUNTÁRIO -->
+      <div id="page-detalhe" class="page hidden">
+        <div class="flex items-center justify-between mb-6">
+          <h1 class="text-2xl font-bold text-evg-blue" id="detalhe-nome">—</h1>
+          <div class="flex gap-2">
+            <button onclick="editarVoluntario()" class="bg-evg-blue text-white px-4 py-2 rounded-lg text-sm">Editar</button>
+            <button onclick="downloadFicha()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm">Download</button>
+            <button onclick="showPage('voluntarios')" class="border px-4 py-2 rounded-lg text-sm">← Voltar</button>
+          </div>
+        </div>
+        <div id="detalhe-conteudo" class="bg-white rounded-xl shadow p-6 space-y-6"></div>
+      </div>
+
+      <!-- ATENDIMENTO -->
+      <div id="page-atendimento" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-6">Atendimento</h1>
+        
+        <div class="bg-white rounded-xl shadow p-5 mb-6">
+          <label class="block text-sm font-medium mb-2">Buscar voluntário</label>
+          <input type="text" id="busca-atendimento" placeholder="Digite o nome do voluntário..."
+                 class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm"
+                 oninput="buscarAtendimento()">
+          <div id="resultados-atendimento" class="mt-3 space-y-1 max-h-48 overflow-y-auto"></div>
+        </div>
+
+        <div id="painel-atendimento" class="hidden">
+          <div class="bg-white rounded-xl shadow p-5 mb-6">
+            <div class="flex items-center gap-4 mb-4">
+              <div id="atend-foto" class="w-16 h-16 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center text-xs text-gray-400">Foto</div>
+              <div>
+                <h2 class="text-xl font-bold text-evg-blue" id="atend-nome">—</h2>
+                <p class="text-sm text-gray-500" id="atend-info">—</p>
+              </div>
+            </div>
+          </div>
+
+          <form id="form-atendimento" class="bg-white rounded-xl shadow p-6 space-y-6">
+            <input type="hidden" id="atend-voluntario-id">
+            
+            <div>
+              <label class="block text-sm font-medium mb-1">1. Como está a sua espiritualidade?</label>
+              <textarea id="perg1" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Resposta..."></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">2. Você tem feito jejum?</label>
+              <select id="perg2" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim, regularmente</option>
+                <option>Sim, de vez em quando</option>
+                <option>Não</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">3. Você tem feito propósito?</label>
+              <select id="perg3" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim</option>
+                <option>Não</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2">4. Quais dias da reunião você tem vindo? (marque e coloque o horário)</label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" id="dia_seg" class="rounded"> <span class="text-sm w-16">Segunda</span>
+                  <input type="time" id="hora_seg" class="px-2 py-1 border rounded text-sm">
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" id="dia_ter" class="rounded"> <span class="text-sm w-16">Terça</span>
+                  <input type="time" id="hora_ter" class="px-2 py-1 border rounded text-sm">
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" id="dia_qua" class="rounded"> <span class="text-sm w-16">Quarta</span>
+                  <input type="time" id="hora_qua" class="px-2 py-1 border rounded text-sm">
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" id="dia_qui" class="rounded"> <span class="text-sm w-16">Quinta</span>
+                  <input type="time" id="hora_qui" class="px-2 py-1 border rounded text-sm">
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" id="dia_sex" class="rounded"> <span class="text-sm w-16">Sexta</span>
+                  <input type="time" id="hora_sex" class="px-2 py-1 border rounded text-sm">
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" id="dia_sab" class="rounded"> <span class="text-sm w-16">Sábado</span>
+                  <input type="time" id="hora_sab" class="px-2 py-1 border rounded text-sm">
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" id="dia_dom" class="rounded"> <span class="text-sm w-16">Domingo</span>
+                  <input type="time" id="hora_dom" class="px-2 py-1 border rounded text-sm">
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">5. Como você está realmente? (pode falar com liberdade)</label>
+              <textarea id="perg5" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Resposta..."></textarea>
+            </div>
+
+            <div class="pt-2">
+              <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
+                Salvar Atendimento
+              </button>
+            </div>
+          </form>
+
+          <div class="mt-6">
+            <h3 class="font-semibold text-evg-blue mb-3">Histórico de atendimentos</h3>
+            <div id="historico-atendimento" class="space-y-3"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROJETOS -->
+      <div id="page-projetos" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-6">Projetos do Grupo EVG</h1>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="lista-projetos"></div>
+      </div>
+
+      <!-- FORMULÁRIO COORDENADOR: Acompanhamento do Grupo -->
+      <div id="page-form-grupo" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Acompanhamento dos Grupos da EVG</h1>
+        <p class="text-sm text-gray-500 mb-6">Preencha o relatório do seu grupo e clique em Salvar.</p>
+
+        <form id="form-relatorio-grupo" class="bg-white rounded-xl shadow p-6 space-y-8 max-w-3xl">
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">1. Identificação</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Nome do coordenador *</label>
+                <input type="text" id="rel_coordenador" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Seu nome">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Nome do auxiliar do coordenador</label>
+                <input type="text" id="rel_auxiliar" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Nome do auxiliar">
+              </div>
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium mb-1">Qual grupo o coordenador faz parte? *</label>
+                <select id="rel_grupo" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="">Selecione o grupo / projeto</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Quantas pessoas foram alcançadas? *</label>
+                <input type="number" id="rel_alcancadas" min="0" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 25">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Quantos voluntários estavam no projeto? *</label>
+                <input type="number" id="rel_qtd_voluntarios" min="0" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 5">
+              </div>
+            </div>
+            <div class="mt-4">
+              <label class="block text-sm font-medium mb-1">Quais voluntários estavam no projeto, ajudando?</label>
+              <p class="text-xs text-gray-500 mb-2">Digite para buscar e clique no nome para adicionar. Pode adicionar vários.</p>
+              <div class="relative">
+                <input type="text" id="rel_busca_vol" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Buscar voluntário pelo nome..." autocomplete="off" oninput="filtrarVolRelatorio()" onfocus="filtrarVolRelatorio()">
+                <div id="rel_busca_resultados" class="hidden absolute z-10 left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
+              </div>
+              <div id="rel_voluntarios_selecionados" class="flex flex-wrap gap-2 mt-3 min-h-[2rem]"></div>
+            </div>
+          </section>
+
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">2. O que podemos melhorar?</h2>
+            <label class="block text-sm font-medium mb-1">O que você acha que deveríamos mudar ou melhorar no grupo?</label>
+            <textarea id="rel_melhorar" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Sua resposta..."></textarea>
+          </section>
+
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">3. Ideias para o grupo</h2>
+            <label class="block text-sm font-medium mb-1">Quais ideias e sugestões você daria para que o grupo pudesse crescer e funcionar melhor?</label>
+            <textarea id="rel_ideias" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Sua resposta..."></textarea>
+          </section>
+
+          <section>
+            <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">4. O que eles precisam?</h2>
+            <label class="block text-sm font-medium mb-1">Na sua percepção, como estão os voluntários que fazem parte do seu grupo? O que você acha que eles precisam neste momento?</label>
+            <textarea id="rel_precisam" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Sua resposta..."></textarea>
+          </section>
+
+          <div class="pt-2">
+            <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
+              Salvar Relatório
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- LISTA DE RELATÓRIOS (só gestão) -->
+      <div id="page-relatorios-grupos" class="page hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h1 class="text-2xl font-bold text-evg-blue">Relatórios dos Grupos</h1>
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-600">Mês:</label>
+            <select id="filtro-mes-relatorio" class="px-3 py-2 border rounded-lg text-sm" onchange="renderRelatoriosGrupos()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+        </div>
+        <div id="lista-relatorios-grupos" class="space-y-4"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ===================== CONFIGURAÇÃO SUPABASE =====================
+    const SUPABASE_URL = 'https://bohyfuqxgvryrpzotxeg.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_HVhB1YSbOR_NbdLdeXpsEw_pNHLnnDm';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const PROJETOS = [
+      'Anjos da Madrugada',
+      'Bom Samaritano',
+      'Consolador',
+      'EVG ao pé da cruz',
+      'EVG digital',
+      'EVG night',
+      'EVG sobre trilhos',
+      'Guardiões da estrada',
+      'Núcleo no lar',
+      'Ponto de fé',
+      'Ponto de oração',
+      'Unisocial',
+      'Mercado Solidário'
+    ];
+
+    // ===================== ESTADO =====================
+    let usuarioLogado = null;
+    let voluntarios = [];
+    let atendimentos = [];
+    let relatoriosGrupos = [];
+    let voluntarioAtualId = null;
+
+    function isAtivo(v) {
+      return !v.status || v.status === 'ativo' || v.status === 'Ativo';
+    }
+
+    // ===================== DADOS (SUPABASE) =====================
+    async function carregarVoluntarios() {
+      const { data, error } = await supabaseClient.from('voluntarios').select('*').order('nome');
+      if (error) {
+        console.error('Erro voluntarios:', error);
+        alert('Erro ao carregar voluntários: ' + error.message);
+        voluntarios = [];
+        return;
+      }
+      voluntarios = data || [];
+    }
+
+    async function carregarAtendimentos() {
+      const { data, error } = await supabaseClient.from('atendimentos').select('*').order('created_at', { ascending: false });
+      if (error) {
+        console.error('Erro atendimentos:', error);
+        atendimentos = [];
+        return;
+      }
+      atendimentos = (data || []).map(a => ({
+        ...a,
+        data: a.created_at,
+        dias: a.dias || []
+      }));
+    }
+
+    async function carregarRelatorios() {
+      const { data, error } = await supabaseClient.from('relatorios_grupos').select('*').order('created_at', { ascending: false });
+      if (error) {
+        console.error('Erro relatorios:', error);
+        relatoriosGrupos = [];
+        return;
+      }
+      relatoriosGrupos = (data || []).map(r => ({
+        ...r,
+        data: r.created_at,
+        mes: r.mes || (r.created_at ? (new Date(r.created_at).getFullYear() + '-' + String(new Date(r.created_at).getMonth()+1).padStart(2,'0')) : '')
+      }));
+    }
+
+    async function carregarTudo() {
+      await Promise.all([carregarVoluntarios(), carregarAtendimentos(), carregarRelatorios()]);
+    }
+
+    // ===================== LOGIN =====================
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-user').value.trim();
+      const pass = document.getElementById('login-pass').value;
+      const errorEl = document.getElementById('login-error');
+      errorEl.classList.add('hidden');
+
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+      if (error) {
+        errorEl.textContent = 'E-mail ou senha incorretos. ' + (error.message || '');
+        errorEl.classList.remove('hidden');
+        return;
+      }
+
+      const userId = data.user.id;
+      const { data: perfil, error: perfilErr } = await supabaseClient.from('perfis').select('*').eq('id', userId).maybeSingle();
+      if (perfilErr || !perfil) {
+        errorEl.textContent = 'Usuário sem perfil. Peça à gestão para cadastrar seu acesso (tabela perfis).';
+        errorEl.classList.remove('hidden');
+        await supabaseClient.auth.signOut();
+        return;
+      }
+
+      usuarioLogado = {
+        id: userId,
+        email,
+        nome: perfil.nome || email,
+        tipo: perfil.tipo,
+        role: perfil.tipo === 'gestao' ? 'Gestão' : 'Coordenador de Grupo'
+      };
+      await iniciarApp();
+    });
+
+    async function logout() {
+      await supabaseClient.auth.signOut();
+      usuarioLogado = null;
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('login-screen').classList.remove('hidden');
+      document.getElementById('login-form').reset();
+    }
+
+    // ===================== INICIALIZAÇÃO =====================
+    async function iniciarApp() {
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      document.getElementById('user-name').textContent = usuarioLogado.nome;
+      document.getElementById('user-role').textContent = usuarioLogado.role;
+
+      const isCoord = usuarioLogado.tipo === 'coordenador';
+      document.getElementById('menu-gestao').classList.toggle('hidden', isCoord);
+      document.getElementById('menu-coordenador').classList.toggle('hidden', !isCoord);
+
+      await carregarTudo();
+      preencherProjetos();
+      preencherFormGrupo();
+
+      if (isCoord) {
+        showPage('form-grupo');
+      } else {
+        showPage('dashboard');
+        atualizarDashboard();
+      }
+    }
+
+    // Sessão existente
+    supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return;
+      const userId = session.user.id;
+      const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', userId).maybeSingle();
+      if (!perfil) return;
+      usuarioLogado = {
+        id: userId,
+        email: session.user.email,
+        nome: perfil.nome || session.user.email,
+        tipo: perfil.tipo,
+        role: perfil.tipo === 'gestao' ? 'Gestão' : 'Coordenador de Grupo'
+      };
+      await iniciarApp();
+    });
+
+    // ===================== NAVEGAÇÃO =====================
+    function showPage(page, isEdit = false) {
+      document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+      document.getElementById('page-' + page).classList.remove('hidden');
+
+      document.querySelectorAll('.sidebar-link').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.page === page);
+      });
+
+      if (page === 'voluntarios') renderTabela();
+      if (page === 'dashboard') atualizarDashboard();
+      if (page === 'novo' && !isEdit) {
+        // Só limpa o formulário quando for um NOVO cadastro
+        document.getElementById('form-title').textContent = 'Novo Cadastro de Voluntário';
+        document.getElementById('form-voluntario').reset();
+        document.getElementById('edit-id').value = '';
+        document.getElementById('igreja').value = 'Vicente de Carvalho';
+        document.getElementById('regiao').value = 'Guarujá';
+        document.getElementById('bloco').value = 'Santos';
+        document.getElementById('estado').value = 'São Paulo';
+        // Limpa checkboxes de projetos
+        document.querySelectorAll('input[name="projetos"]').forEach(cb => cb.checked = false);
+      }
+      if (page === 'projetos') renderProjetos();
+      if (page === 'atendimento') {
+        document.getElementById('busca-atendimento').value = '';
+        document.getElementById('painel-atendimento').classList.add('hidden');
+        buscarAtendimento();
+      }
+      if (page === 'form-grupo') {
+        preencherFormGrupo();
+      }
+      if (page === 'relatorios-grupos') {
+        renderRelatoriosGrupos();
+      }
+    }
+
+    // ===================== PROJETOS =====================
+    function preencherProjetos() {
+      const container = document.getElementById('projetos-checkboxes');
+      const select = document.getElementById('projeto_principal');
+      const filtro = document.getElementById('filtro-projeto');
+      const coordSelect = document.getElementById('coordenador_de');
+      const relGrupo = document.getElementById('rel_grupo');
+
+      if (container) container.innerHTML = '';
+      if (select) select.innerHTML = '<option value="">Selecione</option>';
+      if (filtro) filtro.innerHTML = '<option value="">Todos os projetos</option>';
+      if (coordSelect) coordSelect.innerHTML = '<option value="">Selecione o projeto</option>';
+      if (relGrupo) relGrupo.innerHTML = '<option value="">Selecione o grupo / projeto</option>';
+
+      PROJETOS.forEach(p => {
+        if (container) {
+          const label = document.createElement('label');
+          label.className = 'flex items-center gap-2 text-sm cursor-pointer';
+          label.innerHTML = `<input type="checkbox" name="projetos" value="${p}" class="rounded"> ${p}`;
+          container.appendChild(label);
+        }
+
+        if (select) {
+          const opt = document.createElement('option');
+          opt.value = p;
+          opt.textContent = p;
+          select.appendChild(opt);
+        }
+
+        if (filtro) {
+          const opt2 = document.createElement('option');
+          opt2.value = p;
+          opt2.textContent = p;
+          filtro.appendChild(opt2);
+        }
+
+        if (coordSelect) {
+          const opt3 = document.createElement('option');
+          opt3.value = p;
+          opt3.textContent = p;
+          coordSelect.appendChild(opt3);
+        }
+
+        if (relGrupo) {
+          const opt4 = document.createElement('option');
+          opt4.value = p;
+          opt4.textContent = p;
+          relGrupo.appendChild(opt4);
+        }
+      });
+    }
+
+    function toggleCoordProjeto() {
+      const eh = document.getElementById('eh_coordenador').value;
+      document.getElementById('campo-coord-projeto').classList.toggle('hidden', eh !== 'Sim');
+    }
+
+    // Foto
+    function previewFoto(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) {
+        alert('A foto deve ter no máximo 2MB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('foto_base64').value = e.target.result;
+        document.getElementById('foto-preview').innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover">`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removerFoto() {
+      document.getElementById('foto').value = '';
+      document.getElementById('foto_base64').value = '';
+      document.getElementById('foto-preview').innerHTML = '<span class="text-gray-400 text-xs text-center">Sem foto</span>';
+    }
+
+    function renderProjetos() {
+      const container = document.getElementById('lista-projetos');
+      container.innerHTML = PROJETOS.map(p => {
+        const qtd = voluntarios.filter(v => isAtivo(v) && (v.projetos || []).includes(p)).length;
+        return `
+          <div class="bg-white rounded-xl shadow p-5 border-l-4 border-evg-red">
+            <div class="font-semibold text-evg-blue">${p}</div>
+            <div class="text-2xl font-bold mt-2">${qtd}</div>
+            <div class="text-xs text-gray-500">voluntários ativos</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ===================== CRUD VOLUNTÁRIOS =====================
+    document.getElementById('form-voluntario').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const projetosSelecionados = Array.from(document.querySelectorAll('input[name="projetos"]:checked')).map(c => c.value);
+      const editId = document.getElementById('edit-id').value;
+
+      const emptyToNull = (v) => (v === '' || v === undefined ? null : v);
+
+      const dados = {
+        igreja: document.getElementById('igreja').value,
+        regiao: document.getElementById('regiao').value,
+        bloco: document.getElementById('bloco').value,
+        estado: document.getElementById('estado').value,
+        nome: document.getElementById('nome').value.trim(),
+        nascimento: emptyToNull(document.getElementById('nascimento').value),
+        telefone: document.getElementById('telefone').value.trim(),
+        rg: document.getElementById('rg').value,
+        cpf: document.getElementById('cpf').value,
+        endereco: document.getElementById('endereco').value,
+        numero: document.getElementById('numero').value,
+        bairro: document.getElementById('bairro').value,
+        cidade: document.getElementById('cidade').value,
+        uf: document.getElementById('uf').value,
+        cep: document.getElementById('cep').value,
+        com_quem_mora: document.getElementById('com_quem_mora').value,
+        estado_civil: document.getElementById('estado_civil').value,
+        conjuge_iurd: document.getElementById('conjuge_iurd').value,
+        tem_filhos: document.getElementById('tem_filhos').value,
+        qtd_filhos: emptyToNull(document.getElementById('qtd_filhos').value) ? parseInt(document.getElementById('qtd_filhos').value, 10) : null,
+        estuda: document.getElementById('estuda').value,
+        escolaridade: document.getElementById('escolaridade').value,
+        profissao: document.getElementById('profissao').value,
+        empresa: document.getElementById('empresa').value,
+        tipo_voluntario: document.getElementById('tipo_voluntario').checked,
+        tipo_cpo: document.getElementById('tipo_cpo').checked,
+        tipo_colaborador: document.getElementById('tipo_colaborador').checked,
+        tipo_obreiro: document.getElementById('tipo_obreiro').checked,
+        funcao_evg: document.getElementById('funcao_evg').value,
+        eh_coordenador: document.getElementById('eh_coordenador').value,
+        coordenador_de: document.getElementById('coordenador_de').value,
+        inicio_iurd: emptyToNull(document.getElementById('inicio_iurd').value),
+        inicio_evg: emptyToNull(document.getElementById('inicio_evg').value),
+        posicao: document.getElementById('posicao').value,
+        batizado_aguas: document.getElementById('batizado_aguas').value,
+        data_batismo_aguas: emptyToNull(document.getElementById('data_batismo_aguas').value),
+        batizado_espirito: document.getElementById('batizado_espirito').value,
+        data_batismo_espirito: emptyToNull(document.getElementById('data_batismo_espirito').value),
+        projetos: projetosSelecionados,
+        projeto_principal: document.getElementById('projeto_principal').value,
+        coordenador_projeto: document.getElementById('coordenador_projeto').value,
+        foto: emptyToNull(document.getElementById('foto_base64').value),
+        testemunho: document.getElementById('testemunho').value,
+        observacoes: document.getElementById('observacoes').value,
+        status: document.getElementById('status').value || 'ativo',
+        updated_at: new Date().toISOString()
+      };
+
+      let error;
+      if (editId) {
+        ({ error } = await supabaseClient.from('voluntarios').update(dados).eq('id', editId));
+      } else {
+        ({ error } = await supabaseClient.from('voluntarios').insert([dados]));
+      }
+
+      if (error) {
+        alert('Erro ao salvar: ' + error.message);
+        return;
+      }
+
+      await carregarVoluntarios();
+      alert('Cadastro salvo com sucesso!');
+      showPage('voluntarios');
+    });
+
+    function renderTabela() {
+      const busca = document.getElementById('busca').value.toLowerCase();
+      const filtroProj = document.getElementById('filtro-projeto').value;
+      const filtroStatus = document.getElementById('filtro-status').value;
+
+      let lista = [...voluntarios];
+
+      if (filtroStatus === 'ativo') {
+        lista = lista.filter(v => isAtivo(v));
+      } else if (filtroStatus === 'arquivado') {
+        lista = lista.filter(v => v.status === 'arquivado');
+      }
+      if (filtroProj) {
+        lista = lista.filter(v => (v.projetos || []).includes(filtroProj) || v.projeto_principal === filtroProj);
+      }
+      if (busca) {
+        lista = lista.filter(v =>
+          (v.nome || '').toLowerCase().includes(busca) ||
+          (v.telefone || '').includes(busca) ||
+          (v.cpf || '').includes(busca)
+        );
+      }
+
+      // Ordena por nome
+      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+      const tbody = document.getElementById('tabela-voluntarios');
+      const sem = document.getElementById('sem-resultados');
+
+      if (lista.length === 0) {
+        tbody.innerHTML = '';
+        sem.classList.remove('hidden');
+        return;
+      }
+      sem.classList.add('hidden');
+
+      tbody.innerHTML = lista.map(v => {
+        // Último atendimento desta pessoa
+        const atends = (typeof atendimentos !== 'undefined' ? atendimentos : [])
+          .filter(a => a.voluntario_id === v.id)
+          .sort((a, b) => new Date(b.data) - new Date(a.data));
+        const ultimo = atends.length > 0
+          ? new Date(atends[0].data).toLocaleDateString('pt-BR')
+          : '—';
+
+        return `
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 font-medium">${v.nome || '—'}</td>
+          <td class="px-4 py-3">${v.telefone || '—'}</td>
+          <td class="px-4 py-3">${v.projeto_principal || '—'}</td>
+          <td class="px-4 py-3">${v.funcao_evg || v.posicao || '—'}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs ${v.status === 'ativo' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+              ${v.status === 'ativo' ? 'Ativo' : 'Arquivado'}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-sm ${ultimo === '—' ? 'text-gray-400' : 'text-evg-blue'}">${ultimo}</td>
+          <td class="px-4 py-3 text-right space-x-2">
+            <button onclick="verDetalhe('${v.id}')" class="text-evg-blue hover:underline text-sm">Ver</button>
+            <button onclick="editarPorId('${v.id}')" class="text-gray-600 hover:underline text-sm">Editar</button>
+          </td>
+        </tr>
+      `}).join('');
+    }
+
+    function filtrarVoluntarios() {
+      renderTabela();
+    }
+
+    function verDetalhe(id) {
+      const v = voluntarios.find(x => x.id === id);
+      if (!v) return;
+      voluntarioAtualId = id;
+
+      document.getElementById('detalhe-nome').textContent = v.nome;
+      
+      const fotoHtml = v.foto 
+        ? `<img src="${v.foto}" class="w-28 h-28 rounded-full object-cover border-2 border-evg-blue">`
+        : `<div class="w-28 h-28 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xs">Sem foto</div>`;
+
+      document.getElementById('detalhe-conteudo').innerHTML = `
+        <div class="flex flex-col sm:flex-row gap-6 mb-6">
+          ${fotoHtml}
+          <div>
+            <p class="text-lg font-semibold">${v.nome}</p>
+            <p class="text-sm text-gray-500">${v.funcao_evg || '—'} ${v.eh_coordenador === 'Sim' ? '• Coordenador de ' + (v.coordenador_de || '') : ''}</p>
+            <p class="text-sm mt-1">${v.telefone || ''}</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 class="font-semibold text-evg-blue mb-2">Dados da Igreja</h3>
+            <p class="text-sm"><strong>Igreja:</strong> ${v.igreja || '—'}</p>
+            <p class="text-sm"><strong>Região:</strong> ${v.regiao || '—'}</p>
+            <p class="text-sm"><strong>Bloco:</strong> ${v.bloco || '—'}</p>
+            <p class="text-sm"><strong>Estado:</strong> ${v.estado || '—'}</p>
+          </div>
+          <div>
+            <h3 class="font-semibold text-evg-blue mb-2">Contato</h3>
+            <p class="text-sm"><strong>Telefone:</strong> ${v.telefone || '—'}</p>
+            <p class="text-sm"><strong>CPF:</strong> ${v.cpf || '—'}</p>
+            <p class="text-sm"><strong>RG:</strong> ${v.rg || '—'}</p>
+          </div>
+          <div>
+            <h3 class="font-semibold text-evg-blue mb-2">Endereço</h3>
+            <p class="text-sm">${v.endereco || ''} ${v.numero || ''} – ${v.bairro || ''}</p>
+            <p class="text-sm">${v.cidade || ''} / ${v.uf || ''} – CEP ${v.cep || ''}</p>
+          </div>
+          <div>
+            <h3 class="font-semibold text-evg-blue mb-2">Função no EVG</h3>
+            <p class="text-sm"><strong>Função:</strong> ${v.funcao_evg || '—'}</p>
+            <p class="text-sm"><strong>É Coordenador:</strong> ${v.eh_coordenador || 'Não'}</p>
+            ${v.eh_coordenador === 'Sim' ? `<p class="text-sm"><strong>Coordenador de:</strong> ${v.coordenador_de || '—'}</p>` : ''}
+            <p class="text-sm"><strong>Posição:</strong> ${v.posicao || '—'}</p>
+            <p class="text-sm"><strong>Início IURD:</strong> ${v.inicio_iurd || '—'}</p>
+            <p class="text-sm"><strong>Início EVG:</strong> ${v.inicio_evg || '—'}</p>
+            <p class="text-sm"><strong>Batizado águas:</strong> ${v.batizado_aguas || '—'} ${v.data_batismo_aguas ? '('+v.data_batismo_aguas+')' : ''}</p>
+            <p class="text-sm"><strong>Batizado Espírito:</strong> ${v.batizado_espirito || '—'} ${v.data_batismo_espirito ? '('+v.data_batismo_espirito+')' : ''}</p>
+          </div>
+          <div class="md:col-span-2">
+            <h3 class="font-semibold text-evg-blue mb-2">Projetos</h3>
+            <p class="text-sm"><strong>Principal:</strong> ${v.projeto_principal || '—'}</p>
+            <p class="text-sm"><strong>Coordenador do projeto:</strong> ${v.coordenador_projeto || '—'}</p>
+            <p class="text-sm"><strong>Participa:</strong> ${(v.projetos || []).join(', ') || '—'}</p>
+          </div>
+          ${v.testemunho ? `
+          <div class="md:col-span-2">
+            <h3 class="font-semibold text-evg-blue mb-2">Testemunho</h3>
+            <p class="text-sm whitespace-pre-wrap">${v.testemunho}</p>
+          </div>` : ''}
+          ${v.observacoes ? `
+          <div class="md:col-span-2">
+            <h3 class="font-semibold text-evg-blue mb-2">Observações</h3>
+            <p class="text-sm whitespace-pre-wrap">${v.observacoes}</p>
+          </div>` : ''}
+        </div>
+        <div class="pt-4 border-t text-xs text-gray-400">
+          Status: <strong>${v.status}</strong> • Criado em: ${new Date(v.criado_em).toLocaleString('pt-BR')} • Atualizado: ${new Date(v.atualizado_em).toLocaleString('pt-BR')}
+        </div>
+      `;
+      showPage('detalhe');
+    }
+
+    function editarPorId(id) {
+      const v = voluntarios.find(x => x.id === id);
+      if (!v) return;
+      voluntarioAtualId = id;
+
+      document.getElementById('edit-id').value = v.id;
+      document.getElementById('form-title').textContent = 'Editar: ' + v.nome;
+
+      // Preenche todos os campos
+      const campos = ['igreja','regiao','bloco','estado','nome','nascimento','telefone','rg','cpf','endereco','numero','bairro','cidade','uf','cep','com_quem_mora','estado_civil','conjuge_iurd','tem_filhos','qtd_filhos','estuda','escolaridade','profissao','empresa','funcao_evg','eh_coordenador','coordenador_de','inicio_iurd','inicio_evg','posicao','batizado_aguas','data_batismo_aguas','batizado_espirito','data_batismo_espirito','projeto_principal','coordenador_projeto','testemunho','observacoes','status'];
+      campos.forEach(c => {
+        const el = document.getElementById(c);
+        if (el) el.value = v[c] || '';
+      });
+
+      document.getElementById('tipo_voluntario').checked = !!v.tipo_voluntario;
+      document.getElementById('tipo_cpo').checked = !!v.tipo_cpo;
+      document.getElementById('tipo_colaborador').checked = !!v.tipo_colaborador;
+      document.getElementById('tipo_obreiro').checked = !!v.tipo_obreiro;
+
+      // Foto
+      if (v.foto) {
+        document.getElementById('foto_base64').value = v.foto;
+        document.getElementById('foto-preview').innerHTML = `<img src="${v.foto}" class="w-full h-full object-cover">`;
+      } else {
+        removerFoto();
+      }
+
+      // Coordenador
+      toggleCoordProjeto();
+
+      // Projetos checkboxes
+      document.querySelectorAll('input[name="projetos"]').forEach(cb => {
+        cb.checked = (v.projetos || []).includes(cb.value);
+      });
+
+      showPage('novo', true); // true = está editando, não limpa o formulário
+    }
+
+    function editarVoluntario() {
+      if (voluntarioAtualId) editarPorId(voluntarioAtualId);
+    }
+
+    // ===================== DASHBOARD =====================
+    function atualizarDashboard() {
+      const ativos = voluntarios.filter(v => isAtivo(v)).length;
+      const arquivados = voluntarios.filter(v => v.status === 'arquivado').length;
+
+      document.getElementById('stat-total').textContent = voluntarios.length;
+      document.getElementById('stat-ativos').textContent = ativos;
+      document.getElementById('stat-arquivados').textContent = arquivados;
+
+      const ultimos = [...voluntarios]
+        .sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em))
+        .slice(0, 5);
+
+      document.getElementById('ultimos-cadastros').innerHTML = ultimos.length
+        ? ultimos.map(v => `
+            <div class="flex justify-between items-center py-2 border-b last:border-0">
+              <div>
+                <span class="font-medium">${v.nome}</span>
+                <span class="text-gray-400 text-xs ml-2">${v.projeto_principal || ''}</span>
+              </div>
+              <button onclick="verDetalhe('${v.id}')" class="text-evg-blue text-xs hover:underline">Ver</button>
+            </div>
+          `).join('')
+        : '<p class="text-gray-400">Nenhum cadastro ainda.</p>';
+    }
+
+    // ===================== DOWNLOAD FICHA =====================
+    function downloadFicha() {
+      const v = voluntarios.find(x => x.id === voluntarioAtualId);
+      if (!v) return;
+      
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+        <head>
+          <title>Ficha - ${v.nome}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
+            h1 { color: #1e3a5f; border-bottom: 2px solid #c41e3a; padding-bottom: 8px; }
+            h2 { color: #1e3a5f; margin-top: 24px; font-size: 16px; }
+            p { margin: 4px 0; font-size: 14px; }
+            .foto { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; }
+            @media print { body { padding: 10px; } }
+          </style>
+        </head>
+        <body>
+          <h1>Ficha de Voluntário – EVG Universal</h1>
+          ${v.foto ? `<img src="${v.foto}" class="foto">` : ''}
+          <p><strong>Nome:</strong> ${v.nome || ''}</p>
+          <p><strong>Telefone:</strong> ${v.telefone || ''}</p>
+          <p><strong>CPF:</strong> ${v.cpf || ''}</p>
+          <p><strong>Função no EVG:</strong> ${v.funcao_evg || ''}</p>
+          <p><strong>É Coordenador:</strong> ${v.eh_coordenador || 'Não'} ${v.coordenador_de ? 'de ' + v.coordenador_de : ''}</p>
+          <p><strong>Projeto Principal:</strong> ${v.projeto_principal || ''}</p>
+          <p><strong>Projetos:</strong> ${(v.projetos || []).join(', ') || ''}</p>
+          <h2>Dados da Igreja</h2>
+          <p>${v.igreja || ''} – ${v.regiao || ''} – ${v.bloco || ''} – ${v.estado || ''}</p>
+          <h2>Endereço</h2>
+          <p>${v.endereco || ''} ${v.numero || ''}, ${v.bairro || ''} – ${v.cidade || ''}/${v.uf || ''} CEP ${v.cep || ''}</p>
+          <h2>Espiritual</h2>
+          <p>Início IURD: ${v.inicio_iurd || '—'} | Início EVG: ${v.inicio_evg || '—'}</p>
+          <p>Batizado águas: ${v.batizado_aguas || '—'} | Batizado Espírito: ${v.batizado_espirito || '—'}</p>
+          ${v.testemunho ? `<h2>Testemunho</h2><p>${v.testemunho}</p>` : ''}
+          <p style="margin-top:40px; font-size:12px; color:#888;">Gerado em ${new Date().toLocaleString('pt-BR')} • EVG Universal</p>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      setTimeout(() => { try { printWindow.print(); } catch(e) {} }, 300);
+    }
+
+    // ===================== ATENDIMENTO =====================
+    function buscarAtendimento() {
+      const termo = document.getElementById('busca-atendimento').value.toLowerCase().trim();
+      const container = document.getElementById('resultados-atendimento');
+
+      // Mostra todos os ativos se não tiver busca; filtra se tiver
+      let resultados = voluntarios.filter(v => v && v.nome && isAtivo(v));
+      
+      if (termo) {
+        resultados = resultados.filter(v => (v.nome || '').toLowerCase().includes(termo));
+      }
+
+      // Ordena por nome
+      resultados.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+      if (resultados.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-400 py-2">Nenhum voluntário cadastrado ainda. Cadastre em \"Novo Cadastro\".</p>';
+        return;
+      }
+
+      container.innerHTML = resultados.map(v => `
+        <button onclick="selecionarAtendimento('${v.id}')" 
+                class="w-full text-left px-3 py-2 hover:bg-evg-light rounded-lg text-sm flex justify-between items-center border-b border-gray-100 last:border-0">
+          <span class="font-medium">${v.nome}</span>
+          <span class="text-xs text-gray-400">${v.funcao_evg || ''} ${v.projeto_principal ? '• ' + v.projeto_principal : ''}</span>
+        </button>
+      `).join('');
+    }
+
+    function selecionarAtendimento(id) {
+      const v = voluntarios.find(x => x.id === id);
+      if (!v) return;
+
+      document.getElementById('atend-voluntario-id').value = id;
+      document.getElementById('atend-nome').textContent = v.nome;
+      document.getElementById('atend-info').textContent = `${v.funcao_evg || ''} • ${v.projeto_principal || ''} • ${v.telefone || ''}`;
+      
+      if (v.foto) {
+        document.getElementById('atend-foto').innerHTML = `<img src="${v.foto}" class="w-full h-full object-cover">`;
+      } else {
+        document.getElementById('atend-foto').innerHTML = 'Foto';
+      }
+
+      // Limpa formulário
+      document.getElementById('form-atendimento').reset();
+      document.getElementById('atend-voluntario-id').value = id;
+
+      document.getElementById('painel-atendimento').classList.remove('hidden');
+      document.getElementById('resultados-atendimento').innerHTML = '';
+      document.getElementById('busca-atendimento').value = v.nome;
+
+      carregarHistorico(id);
+    }
+
+    function carregarHistorico(id) {
+      const lista = atendimentos
+        .filter(a => a.voluntario_id === id)
+        .sort((a, b) => new Date(b.data) - new Date(a.data));
+
+      const container = document.getElementById('historico-atendimento');
+      if (lista.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-400">Nenhum atendimento registrado ainda.</p>';
+        return;
+      }
+
+      container.innerHTML = lista.map(a => `
+        <div class="bg-gray-50 rounded-lg p-4 text-sm border">
+          <div class="font-medium text-evg-blue mb-2">${new Date(a.data).toLocaleString('pt-BR')}</div>
+          <p><strong>Espiritualidade:</strong> ${a.perg1 || '—'}</p>
+          <p><strong>Jejum:</strong> ${a.perg2 || '—'}</p>
+          <p><strong>Propósito:</strong> ${a.perg3 || '—'}</p>
+          <p><strong>Dias:</strong> ${(a.dias || []).join(', ') || '—'}</p>
+          <p><strong>Como está:</strong> ${a.perg5 || '—'}</p>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('form-atendimento').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('atend-voluntario-id').value;
+      if (!id) return;
+
+      const dias = [];
+      ['seg','ter','qua','qui','sex','sab','dom'].forEach(d => {
+        if (document.getElementById('dia_' + d).checked) {
+          const hora = document.getElementById('hora_' + d).value;
+          const nomes = {seg:'Segunda',ter:'Terça',qua:'Quarta',qui:'Quinta',sex:'Sexta',sab:'Sábado',dom:'Domingo'};
+          dias.push(nomes[d] + (hora ? ' ' + hora : ''));
+        }
+      });
+
+      const registro = {
+        voluntario_id: id,
+        perg1: document.getElementById('perg1').value,
+        perg2: document.getElementById('perg2').value,
+        perg3: document.getElementById('perg3').value,
+        dias: dias,
+        perg5: document.getElementById('perg5').value,
+        registrado_por: usuarioLogado.nome
+      };
+
+      const { error } = await supabaseClient.from('atendimentos').insert([registro]);
+      if (error) {
+        alert('Erro ao salvar atendimento: ' + error.message);
+        return;
+      }
+
+      await carregarAtendimentos();
+      alert('Atendimento salvo com sucesso!');
+      carregarHistorico(id);
+      document.getElementById('form-atendimento').reset();
+      document.getElementById('atend-voluntario-id').value = id;
+    });
+
+    // ===================== RELATÓRIOS DE GRUPOS =====================
+    let relVolSelecionados = [];
+
+    const MESES_NOME = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    function mesKey(dataIso) {
+      const d = new Date(dataIso);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+
+    function mesLabel(key) {
+      if (!key) return '';
+      const [y, m] = key.split('-');
+      return (MESES_NOME[parseInt(m, 10)] || m) + ' / ' + y;
+    }
+
+    function preencherFormGrupo() {
+      relVolSelecionados = [];
+      renderVolSelecionados();
+      const box = document.getElementById('rel_busca_resultados');
+      if (box) box.classList.add('hidden');
+      const busca = document.getElementById('rel_busca_vol');
+      if (busca) busca.value = '';
+    }
+
+    function filtrarVolRelatorio() {
+      const termo = (document.getElementById('rel_busca_vol').value || '').toLowerCase().trim();
+      const box = document.getElementById('rel_busca_resultados');
+      if (!box) return;
+
+      let lista = voluntarios.filter(v => v && v.nome && isAtivo(v));
+      if (termo) {
+        lista = lista.filter(v => (v.nome || '').toLowerCase().includes(termo));
+      }
+      lista = lista.filter(v => !relVolSelecionados.includes(v.nome));
+      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+      if (voluntarios.length === 0) {
+        box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Nenhum voluntário no sistema. Cadastre com login da gestão (thiago/juliana).</p>';
+        box.classList.remove('hidden');
+        return;
+      }
+
+      if (lista.length === 0) {
+        box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Nenhum voluntário encontrado' + (termo ? ' com esse nome' : '') + '</p>';
+        box.classList.remove('hidden');
+        return;
+      }
+
+      box.innerHTML = lista.slice(0, 20).map(v => {
+        const nomeSafe = (v.nome || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return `<button type="button" onclick="adicionarVolRelatorio('${nomeSafe}')"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-evg-light border-b border-gray-50 last:border-0">
+          ${v.nome} <span class="text-xs text-gray-400">${v.projeto_principal ? '• ' + v.projeto_principal : ''}</span>
+        </button>`;
+      }).join('');
+      box.classList.remove('hidden');
+    }
+
+    function adicionarVolRelatorio(nome) {
+      if (!nome || relVolSelecionados.includes(nome)) return;
+      relVolSelecionados.push(nome);
+      renderVolSelecionados();
+      document.getElementById('rel_busca_vol').value = '';
+      document.getElementById('rel_busca_resultados').classList.add('hidden');
+    }
+
+    function removerVolRelatorio(nome) {
+      relVolSelecionados = relVolSelecionados.filter(n => n !== nome);
+      renderVolSelecionados();
+    }
+
+    function renderVolSelecionados() {
+      const el = document.getElementById('rel_voluntarios_selecionados');
+      if (!el) return;
+      if (relVolSelecionados.length === 0) {
+        el.innerHTML = '<span class="text-xs text-gray-400">Nenhum voluntário selecionado ainda</span>';
+        return;
+      }
+      el.innerHTML = relVolSelecionados.map(n => `
+        <span class="inline-flex items-center gap-1 bg-evg-blue text-white text-xs px-2 py-1 rounded-full">
+          ${n}
+          <button type="button" onclick="removerVolRelatorio('${n.replace(/'/g, "\\'")}')" class="hover:text-red-200 ml-1">×</button>
+        </span>
+      `).join('');
+    }
+
+    // Fecha busca ao clicar fora
+    document.addEventListener('click', (e) => {
+      const box = document.getElementById('rel_busca_resultados');
+      const input = document.getElementById('rel_busca_vol');
+      if (!box || !input) return;
+      if (!box.contains(e.target) && e.target !== input) box.classList.add('hidden');
+    });
+
+    document.getElementById('form-relatorio-grupo').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const agora = new Date();
+      const rel = {
+        mes: mesKey(agora.toISOString()),
+        coordenador: document.getElementById('rel_coordenador').value.trim(),
+        auxiliar: document.getElementById('rel_auxiliar').value.trim(),
+        grupo: document.getElementById('rel_grupo').value,
+        alcancadas: parseInt(document.getElementById('rel_alcancadas').value, 10) || 0,
+        qtd_voluntarios: parseInt(document.getElementById('rel_qtd_voluntarios').value, 10) || 0,
+        voluntarios: [...relVolSelecionados],
+        melhorar: document.getElementById('rel_melhorar').value.trim(),
+        ideias: document.getElementById('rel_ideias').value.trim(),
+        precisam: document.getElementById('rel_precisam').value.trim()
+      };
+
+      if (!rel.coordenador || !rel.grupo) {
+        alert('Preencha pelo menos o nome do coordenador e o grupo.');
+        return;
+      }
+
+      const { error } = await supabaseClient.from('relatorios_grupos').insert([rel]);
+      if (error) {
+        alert('Erro ao salvar relatório: ' + error.message);
+        return;
+      }
+
+      await carregarRelatorios();
+      alert('Relatório salvo com sucesso! Obrigado.');
+      document.getElementById('form-relatorio-grupo').reset();
+      preencherFormGrupo();
+    });
+
+    function atualizarFiltroMes() {
+      const sel = document.getElementById('filtro-mes-relatorio');
+      if (!sel) return;
+      const atual = sel.value;
+      const meses = [...new Set(relatoriosGrupos.map(r => r.mes || mesKey(r.data)))].sort().reverse();
+      sel.innerHTML = '<option value="">Todos os meses</option>' + meses.map(m =>
+        `<option value="${m}">${mesLabel(m)}</option>`
+      ).join('');
+      if (meses.includes(atual)) sel.value = atual;
+    }
+
+    function renderRelatoriosGrupos() {
+      const container = document.getElementById('lista-relatorios-grupos');
+      if (!container) return;
+
+      atualizarFiltroMes();
+      const filtroMes = document.getElementById('filtro-mes-relatorio')?.value || '';
+
+      let lista = [...relatoriosGrupos];
+      if (filtroMes) {
+        lista = lista.filter(r => (r.mes || mesKey(r.data)) === filtroMes);
+      }
+      lista.sort((a, b) => new Date(b.data) - new Date(a.data));
+
+      if (lista.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 bg-white rounded-xl shadow p-6">Nenhum relatório neste período.</p>';
+        return;
+      }
+
+      container.innerHTML = lista.map(r => `
+        <div class="bg-white rounded-xl shadow p-5 border-l-4 border-evg-red">
+          <div class="flex flex-wrap justify-between gap-2 mb-3">
+            <div>
+              <div class="font-semibold text-evg-blue text-lg">${r.grupo || '—'}</div>
+              <div class="text-sm text-gray-600">Coordenador: <strong>${r.coordenador || '—'}</strong>${r.auxiliar ? ' • Auxiliar: ' + r.auxiliar : ''}</div>
+              <div class="text-xs text-gray-400 mt-1">${mesLabel(r.mes || mesKey(r.data))} • ${new Date(r.data).toLocaleString('pt-BR')}</div>
+            </div>
+            <button onclick="downloadRelatorio('${r.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg h-fit">
+              Download
+            </button>
+          </div>
+          <div class="flex flex-wrap gap-4 text-sm mb-3">
+            <span class="bg-blue-50 text-evg-blue px-3 py-1 rounded-full"><strong>Alcançadas:</strong> ${r.alcancadas ?? '—'}</span>
+            <span class="bg-green-50 text-green-700 px-3 py-1 rounded-full"><strong>Voluntários no projeto:</strong> ${r.qtd_voluntarios ?? '—'}</span>
+          </div>
+          <p class="text-sm mb-2"><strong>Voluntários que ajudaram:</strong> ${(r.voluntarios || []).join(', ') || '—'}</p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm mt-3">
+            <div class="bg-gray-50 rounded-lg p-3">
+              <div class="font-medium text-evg-blue mb-1">O que melhorar</div>
+              <p class="text-gray-700 whitespace-pre-wrap">${r.melhorar || '—'}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+              <div class="font-medium text-evg-blue mb-1">Ideias</div>
+              <p class="text-gray-700 whitespace-pre-wrap">${r.ideias || '—'}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+              <div class="font-medium text-evg-blue mb-1">O que precisam</div>
+              <p class="text-gray-700 whitespace-pre-wrap">${r.precisam || '—'}</p>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function downloadRelatorio(id) {
+      const r = relatoriosGrupos.find(x => x.id === id);
+      if (!r) return;
+      const w = window.open('', '_blank');
+      w.document.write(`
+        <html><head><title>Relatório - ${r.grupo}</title>
+        <style>
+          body{font-family:Arial,sans-serif;padding:30px;color:#333}
+          h1{color:#1e3a5f;border-bottom:2px solid #c41e3a;padding-bottom:8px}
+          h2{color:#1e3a5f;font-size:15px;margin-top:20px}
+          p{margin:6px 0;font-size:14px}
+        </style></head><body>
+          <h1>Acompanhamento dos Grupos da EVG</h1>
+          <p><strong>Mês:</strong> ${mesLabel(r.mes || mesKey(r.data))}</p>
+          <p><strong>Grupo:</strong> ${r.grupo || ''}</p>
+          <p><strong>Coordenador:</strong> ${r.coordenador || ''}</p>
+          <p><strong>Auxiliar:</strong> ${r.auxiliar || '—'}</p>
+          <p><strong>Pessoas alcançadas:</strong> ${r.alcancadas ?? '—'}</p>
+          <p><strong>Qtd. voluntários no projeto:</strong> ${r.qtd_voluntarios ?? '—'}</p>
+          <p><strong>Voluntários que ajudaram:</strong> ${(r.voluntarios || []).join(', ') || '—'}</p>
+          <h2>O que podemos melhorar?</h2>
+          <p>${r.melhorar || '—'}</p>
+          <h2>Ideias para o grupo</h2>
+          <p>${r.ideias || '—'}</p>
+          <h2>O que eles precisam?</h2>
+          <p>${r.precisam || '—'}</p>
+          <p style="margin-top:40px;font-size:12px;color:#888">Gerado em ${new Date().toLocaleString('pt-BR')} • EVG Universal</p>
+        </body></html>
+      `);
+      w.document.close();
+      setTimeout(() => { try { w.print(); } catch(e) {} }, 300);
+    }
+  </script>
+</body>
+</html>
