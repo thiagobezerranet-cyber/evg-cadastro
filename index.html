@@ -48,9 +48,16 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-          <input type="password" id="login-pass" required
-                 class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-evg-blue"
-                 placeholder="••••••••" autocomplete="current-password">
+          <div class="relative">
+            <input type="password" id="login-pass" required
+                   class="w-full px-4 py-2.5 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-evg-blue"
+                   placeholder="••••••••" autocomplete="current-password">
+            <button type="button" id="toggle-senha" onclick="toggleSenhaLogin()"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-evg-blue text-sm"
+                    title="Mostrar/ocultar senha" aria-label="Mostrar senha">
+              👁
+            </button>
+          </div>
         </div>
         <div id="login-error" class="hidden text-red-600 text-sm text-center"></div>
         <button type="submit"
@@ -161,11 +168,16 @@
         </div>
 
         <div class="bg-white rounded-xl shadow p-4 mb-4 flex flex-col sm:flex-row gap-3">
-          <input type="text" id="busca" placeholder="Buscar por nome, telefone ou CPF..."
+          <input type="text" id="busca" placeholder="Buscar por nome ou telefone..."
                  class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm"
                  oninput="filtrarVoluntarios()">
           <select id="filtro-projeto" class="px-4 py-2 border border-gray-300 rounded-lg text-sm" onchange="filtrarVoluntarios()">
             <option value="">Todos os projetos</option>
+          </select>
+          <select id="filtro-tipo" class="px-4 py-2 border border-gray-300 rounded-lg text-sm" onchange="filtrarVoluntarios()">
+            <option value="">Todos os tipos</option>
+            <option value="obreiros">Só obreiros</option>
+            <option value="voluntarios">Só voluntários / evangelistas</option>
           </select>
           <select id="filtro-status" class="px-4 py-2 border border-gray-300 rounded-lg text-sm" onchange="filtrarVoluntarios()">
             <option value="todos">Todos</option>
@@ -243,14 +255,6 @@
               <div>
                 <label class="block text-sm font-medium mb-1">Tel / WhatsApp *</label>
                 <input type="text" id="telefone" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="(13) 99999-9999">
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">RG / CIN</label>
-                <input type="text" id="rg" class="w-full px-3 py-2 border rounded-lg text-sm">
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">CPF</label>
-                <input type="text" id="cpf" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="000.000.000-00">
               </div>
               <div class="md:col-span-2">
                 <label class="block text-sm font-medium mb-1">Endereço</label>
@@ -773,6 +777,19 @@
     }
 
     // ===================== LOGIN =====================
+    function toggleSenhaLogin() {
+      const input = document.getElementById('login-pass');
+      const btn = document.getElementById('toggle-senha');
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (btn) btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        if (btn) btn.textContent = '👁';
+      }
+    }
+
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('login-user').value.trim();
@@ -1000,8 +1017,6 @@
         nome: document.getElementById('nome').value.trim(),
         nascimento: emptyToNull(document.getElementById('nascimento').value),
         telefone: document.getElementById('telefone').value.trim(),
-        rg: document.getElementById('rg').value,
-        cpf: document.getElementById('cpf').value,
         endereco: document.getElementById('endereco').value,
         numero: document.getElementById('numero').value,
         bairro: document.getElementById('bairro').value,
@@ -1061,6 +1076,7 @@
     function renderTabela() {
       const busca = document.getElementById('busca').value.toLowerCase();
       const filtroProj = document.getElementById('filtro-projeto').value;
+      const filtroTipo = document.getElementById('filtro-tipo')?.value || '';
       const filtroStatus = document.getElementById('filtro-status').value;
 
       let lista = [...voluntarios];
@@ -1073,11 +1089,15 @@
       if (filtroProj) {
         lista = lista.filter(v => (v.projetos || []).includes(filtroProj) || v.projeto_principal === filtroProj);
       }
+      if (filtroTipo === 'obreiros') {
+        lista = lista.filter(v => v.tipo_obreiro === true || v.funcao_evg === 'Obreiro' || v.funcao_evg === 'Coordenador de Projeto' || v.funcao_evg === 'Coordenador Geral');
+      } else if (filtroTipo === 'voluntarios') {
+        lista = lista.filter(v => v.tipo_voluntario === true || v.funcao_evg === 'Evangelista' || (!v.tipo_obreiro && v.funcao_evg !== 'Obreiro' && v.funcao_evg !== 'Coordenador de Projeto' && v.funcao_evg !== 'Coordenador Geral'));
+      }
       if (busca) {
         lista = lista.filter(v =>
           (v.nome || '').toLowerCase().includes(busca) ||
-          (v.telefone || '').includes(busca) ||
-          (v.cpf || '').includes(busca)
+          (v.telefone || '').includes(busca)
         );
       }
 
@@ -1158,8 +1178,6 @@
           <div>
             <h3 class="font-semibold text-evg-blue mb-2">Contato</h3>
             <p class="text-sm"><strong>Telefone:</strong> ${v.telefone || '—'}</p>
-            <p class="text-sm"><strong>CPF:</strong> ${v.cpf || '—'}</p>
-            <p class="text-sm"><strong>RG:</strong> ${v.rg || '—'}</p>
           </div>
           <div>
             <h3 class="font-semibold text-evg-blue mb-2">Endereço</h3>
@@ -1210,7 +1228,7 @@
       document.getElementById('form-title').textContent = 'Editar: ' + v.nome;
 
       // Preenche todos os campos
-      const campos = ['igreja','regiao','bloco','estado','nome','nascimento','telefone','rg','cpf','endereco','numero','bairro','cidade','uf','cep','com_quem_mora','estado_civil','conjuge_iurd','tem_filhos','qtd_filhos','estuda','escolaridade','profissao','empresa','funcao_evg','eh_coordenador','coordenador_de','inicio_iurd','inicio_evg','posicao','batizado_aguas','data_batismo_aguas','batizado_espirito','data_batismo_espirito','projeto_principal','coordenador_projeto','testemunho','observacoes','status'];
+      const campos = ['igreja','regiao','bloco','estado','nome','nascimento','telefone','endereco','numero','bairro','cidade','uf','cep','com_quem_mora','estado_civil','conjuge_iurd','tem_filhos','qtd_filhos','estuda','escolaridade','profissao','empresa','funcao_evg','eh_coordenador','coordenador_de','inicio_iurd','inicio_evg','posicao','batizado_aguas','data_batismo_aguas','batizado_espirito','data_batismo_espirito','projeto_principal','coordenador_projeto','testemunho','observacoes','status'];
       campos.forEach(c => {
         const el = document.getElementById(c);
         if (el) el.value = v[c] || '';
@@ -1294,7 +1312,6 @@
           ${v.foto ? `<img src="${v.foto}" class="foto">` : ''}
           <p><strong>Nome:</strong> ${v.nome || ''}</p>
           <p><strong>Telefone:</strong> ${v.telefone || ''}</p>
-          <p><strong>CPF:</strong> ${v.cpf || ''}</p>
           <p><strong>Função no EVG:</strong> ${v.funcao_evg || ''}</p>
           <p><strong>É Coordenador:</strong> ${v.eh_coordenador || 'Não'} ${v.coordenador_de ? 'de ' + v.coordenador_de : ''}</p>
           <p><strong>Projeto Principal:</strong> ${v.projeto_principal || ''}</p>
