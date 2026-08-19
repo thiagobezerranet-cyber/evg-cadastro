@@ -110,6 +110,10 @@
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>📁</span> Projetos
           </button>
+          <button onclick="showPage('form-grupo')" data-page="form-grupo"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>✏️</span> Preencher relatório
+          </button>
           <button onclick="showPage('relatorios-grupos')" data-page="relatorios-grupos"
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>📋</span> Relatórios dos Grupos
@@ -901,6 +905,11 @@
       }
       if (page === 'form-grupo') {
         preencherFormGrupo();
+        // Se gestão abrir o formulário, já sugere o nome de quem está logado
+        const coordInput = document.getElementById('rel_coordenador');
+        if (coordInput && usuarioLogado && !coordInput.value) {
+          coordInput.value = usuarioLogado.nome || '';
+        }
       }
       if (page === 'relatorios-grupos') {
         renderRelatoriosGrupos();
