@@ -75,9 +75,13 @@
 
   <!-- APP PRINCIPAL -->
   <div id="app" class="hidden min-h-screen flex">
+    <!-- Overlay mobile -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-30 hidden md:hidden" onclick="fecharMenuMobile()"></div>
+
     <!-- SIDEBAR -->
-    <aside class="w-64 bg-evg-dark text-white flex flex-col fixed h-full z-20">
-      <div class="p-5 border-b border-white/10">
+    <aside id="sidebar" class="w-64 bg-evg-dark text-white flex flex-col fixed h-full z-40
+           transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-out">
+      <div class="p-5 border-b border-white/10 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-evg-red flex items-center justify-center font-bold text-sm">EVG</div>
           <div>
@@ -85,9 +89,10 @@
             <div class="text-xs text-white/60" id="user-role">—</div>
           </div>
         </div>
+        <button type="button" class="md:hidden text-white/70 hover:text-white text-xl px-2" onclick="fecharMenuMobile()" aria-label="Fechar menu">×</button>
       </div>
 
-      <nav class="flex-1 p-3 space-y-1">
+      <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
         <!-- Menu gestão (Thiago / Juliana) -->
         <div id="menu-gestao">
           <button onclick="showPage('dashboard')" data-page="dashboard"
@@ -137,10 +142,17 @@
     </aside>
 
     <!-- CONTEÚDO -->
-    <main class="flex-1 ml-64 p-6">
+    <main class="flex-1 w-full min-w-0 md:ml-64">
+      <!-- Barra topo mobile -->
+      <div class="md:hidden sticky top-0 z-20 bg-evg-dark text-white flex items-center gap-3 px-4 py-3 shadow">
+        <button type="button" onclick="abrirMenuMobile()" class="text-2xl leading-none px-1" aria-label="Abrir menu">☰</button>
+        <div class="font-semibold text-sm">EVG Universal</div>
+      </div>
+
+      <div class="p-4 sm:p-6">
       <!-- DASHBOARD -->
       <div id="page-dashboard" class="page hidden">
-        <h1 class="text-2xl font-bold text-evg-blue mb-6">Dashboard</h1>
+        <h1 class="text-xl sm:text-2xl font-bold text-evg-blue mb-6">Dashboard</h1>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
           <div class="bg-white rounded-xl shadow p-5 border-l-4 border-evg-blue">
             <div class="text-sm text-gray-500">Total de Voluntários</div>
@@ -345,14 +357,29 @@
           <!-- Foto -->
           <section>
             <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">Foto</h2>
-            <div class="flex items-center gap-6">
-              <div id="foto-preview" class="w-28 h-28 rounded-full bg-gray-200 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+              <div id="foto-preview" class="w-28 h-28 rounded-full bg-gray-200 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden shrink-0">
                 <span class="text-gray-400 text-xs text-center">Sem foto</span>
               </div>
-              <div>
-                <input type="file" id="foto" accept="image/*" class="text-sm" onchange="previewFoto(event)">
-                <p class="text-xs text-gray-500 mt-1">JPG ou PNG • Máx. 2MB</p>
-                <button type="button" onclick="removerFoto()" class="text-xs text-red-500 mt-1 hover:underline">Remover foto</button>
+              <div class="space-y-2">
+                <!-- Galeria / arquivos do PC -->
+                <input type="file" id="foto" accept="image/*" class="hidden" onchange="previewFoto(event)">
+                <!-- Câmera do celular -->
+                <input type="file" id="foto-camera" accept="image/*" capture="environment" class="hidden" onchange="previewFoto(event)">
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" onclick="document.getElementById('foto').click()"
+                          class="bg-evg-blue hover:bg-evg-dark text-white text-sm px-3 py-2 rounded-lg">
+                    📁 Escolher foto
+                  </button>
+                  <button type="button" onclick="document.getElementById('foto-camera').click()"
+                          class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-2 rounded-lg">
+                    📷 Tirar foto
+                  </button>
+                  <button type="button" onclick="removerFoto()" class="text-sm text-red-500 px-2 py-2 hover:underline">
+                    Remover
+                  </button>
+                </div>
+                <p class="text-xs text-gray-500">No celular: use <strong>Tirar foto</strong> para abrir a câmera.<br>No computador: use <strong>Escolher foto</strong> para buscar na memória.</p>
               </div>
             </div>
             <input type="hidden" id="foto_base64">
@@ -701,6 +728,7 @@
         </div>
         <div id="lista-relatorios-grupos" class="space-y-4"></div>
       </div>
+      </div><!-- fim padding conteúdo -->
     </main>
   </div>
 
@@ -878,6 +906,18 @@
       await iniciarApp();
     });
 
+    // ===================== MENU MOBILE =====================
+    function abrirMenuMobile() {
+      document.getElementById('sidebar').classList.remove('-translate-x-full');
+      document.getElementById('sidebar-overlay').classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    }
+    function fecharMenuMobile() {
+      document.getElementById('sidebar').classList.add('-translate-x-full');
+      document.getElementById('sidebar-overlay').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+
     // ===================== NAVEGAÇÃO =====================
     function showPage(page, isEdit = false) {
       document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
@@ -886,6 +926,7 @@
       document.querySelectorAll('.sidebar-link').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.page === page);
       });
+      fecharMenuMobile();
 
       if (page === 'voluntarios') renderTabela();
       if (page === 'dashboard') atualizarDashboard();
@@ -977,24 +1018,44 @@
       document.getElementById('campo-coord-projeto').classList.toggle('hidden', eh !== 'Sim');
     }
 
-    // Foto
+    // Foto (galeria, PC ou câmera do celular)
     function previewFoto(event) {
       const file = event.target.files[0];
       if (!file) return;
-      if (file.size > 2 * 1024 * 1024) {
-        alert('A foto deve ter no máximo 2MB');
+      if (!file.type.startsWith('image/')) {
+        alert('Selecione uma imagem (JPG ou PNG).');
         return;
       }
+      // Fotos de celular costumam ser grandes: redimensiona para caber no sistema
       const reader = new FileReader();
       reader.onload = function(e) {
-        document.getElementById('foto_base64').value = e.target.result;
-        document.getElementById('foto-preview').innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover">`;
+        const img = new Image();
+        img.onload = function() {
+          const max = 800;
+          let w = img.width;
+          let h = img.height;
+          if (w > max || h > max) {
+            if (w > h) { h = Math.round(h * max / w); w = max; }
+            else { w = Math.round(w * max / h); h = max; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          document.getElementById('foto_base64').value = dataUrl;
+          document.getElementById('foto-preview').innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover">`;
+        };
+        img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     }
 
     function removerFoto() {
-      document.getElementById('foto').value = '';
+      const f1 = document.getElementById('foto');
+      const f2 = document.getElementById('foto-camera');
+      if (f1) f1.value = '';
+      if (f2) f2.value = '';
       document.getElementById('foto_base64').value = '';
       document.getElementById('foto-preview').innerHTML = '<span class="text-gray-400 text-xs text-center">Sem foto</span>';
     }
