@@ -386,6 +386,7 @@
                 <select id="funcao_evg" class="w-full px-3 py-2 border rounded-lg text-sm">
                   <option value="">Selecione</option>
                   <option value="Evangelista">Evangelista (Voluntário)</option>
+                  <option value="Auxiliar">Auxiliar</option>
                   <option value="Obreiro">Obreiro</option>
                   <option value="Coordenador de Projeto">Coordenador de Projeto</option>
                   <option value="Coordenador Geral">Coordenador Geral</option>
@@ -710,6 +711,7 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const PROJETOS = [
+      'Secretária',
       'Anjos da Madrugada',
       'Bom Samaritano',
       'Consolador',
