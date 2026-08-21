@@ -651,6 +651,18 @@
         <h1 class="text-2xl font-bold text-evg-blue mb-2">Acompanhamento dos Grupos da EVG</h1>
         <p class="text-sm text-gray-500 mb-6">Preencha o relatório do seu grupo e clique em Salvar.</p>
 
+        <!-- Mensagem de sucesso após enviar -->
+        <div id="relatorio-sucesso" class="hidden mb-6 max-w-3xl rounded-xl border border-green-300 bg-green-50 p-5 shadow">
+          <div class="flex items-start gap-3">
+            <span class="text-2xl">✅</span>
+            <div>
+              <p class="font-semibold text-green-800 text-lg">Relatório enviado com sucesso!</p>
+              <p class="text-sm text-green-700 mt-1">As informações foram salvas. A gestão já pode visualizar este relatório.</p>
+              <p class="text-sm text-green-600 mt-2">O formulário foi limpo. Se precisar, você pode preencher outro relatório abaixo.</p>
+            </div>
+          </div>
+        </div>
+
         <form id="form-relatorio-grupo" class="bg-white rounded-xl shadow p-6 space-y-8 max-w-3xl">
           <section>
             <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">1. Identificação</h2>
@@ -1662,9 +1674,21 @@
       }
 
       await carregarRelatorios();
-      alert('Relatório salvo com sucesso! Obrigado.');
       document.getElementById('form-relatorio-grupo').reset();
       preencherFormGrupo();
+
+      // Mensagem clara na tela (não só alert)
+      const okBox = document.getElementById('relatorio-sucesso');
+      if (okBox) {
+        okBox.classList.remove('hidden');
+        okBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      try { alert('Relatório enviado com sucesso! As informações foram salvas.'); } catch (e) {}
+
+      // Esconde a mensagem após 12 segundos (formulário continua disponível)
+      setTimeout(() => {
+        if (okBox) okBox.classList.add('hidden');
+      }, 12000);
     });
 
     function atualizarFiltroMes() {
@@ -1704,9 +1728,14 @@
               <div class="text-sm text-gray-600">Coordenador: <strong>${r.coordenador || '—'}</strong>${r.auxiliar ? ' • Auxiliar: ' + r.auxiliar : ''}</div>
               <div class="text-xs text-gray-400 mt-1">${mesLabel(r.mes || mesKey(r.data))} • ${new Date(r.data).toLocaleString('pt-BR')}</div>
             </div>
-            <button onclick="downloadRelatorio('${r.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg h-fit">
-              Download
-            </button>
+            <div class="flex flex-wrap gap-2 h-fit">
+              <button onclick="downloadRelatorio('${r.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">
+                Download
+              </button>
+              <button onclick="excluirRelatorio('${r.id}')" class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1.5 rounded-lg">
+                Excluir
+              </button>
+            </div>
           </div>
           <div class="flex flex-wrap gap-4 text-sm mb-3">
             <span class="bg-blue-50 text-evg-blue px-3 py-1 rounded-full"><strong>Alcançadas:</strong> ${r.alcancadas ?? '—'}</span>
@@ -1729,6 +1758,22 @@
           </div>
         </div>
       `).join('');
+    }
+
+    async function excluirRelatorio(id) {
+      if (!id) return;
+      const r = relatoriosGrupos.find(x => x.id === id);
+      const label = r ? ((r.grupo || 'relatório') + ' — ' + (r.coordenador || '')) : 'este relatório';
+      if (!confirm('Excluir permanentemente o relatório de "' + label + '"?\n\nIsso não pode ser desfeito.')) return;
+
+      const { error } = await supabaseClient.from('relatorios_grupos').delete().eq('id', id);
+      if (error) {
+        alert('Erro ao excluir: ' + error.message);
+        return;
+      }
+      await carregarRelatorios();
+      renderRelatoriosGrupos();
+      alert('Relatório excluído.');
     }
 
     function downloadRelatorio(id) {
