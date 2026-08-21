@@ -702,10 +702,17 @@
             </div>
             <div class="mt-4">
               <label class="block text-sm font-medium mb-1">Quais voluntários estavam no projeto, ajudando?</label>
-              <p class="text-xs text-gray-500 mb-2">Digite para buscar e clique no nome para adicionar. Pode adicionar vários.</p>
+              <p class="text-xs text-gray-500 mb-2">Digite para buscar e toque/clique no nome para adicionar. Pode adicionar vários.</p>
               <div class="relative">
-                <input type="text" id="rel_busca_vol" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Buscar voluntário pelo nome..." autocomplete="off" oninput="filtrarVolRelatorio()" onfocus="filtrarVolRelatorio()">
-                <div id="rel_busca_resultados" class="hidden absolute z-10 left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
+                <input type="text" id="rel_busca_vol"
+                       class="w-full px-3 py-3 border rounded-lg text-base sm:text-sm"
+                       placeholder="Buscar voluntário pelo nome..."
+                       autocomplete="off" enterkeyhint="search"
+                       oninput="filtrarVolRelatorio()"
+                       onkeyup="filtrarVolRelatorio()"
+                       onfocus="filtrarVolRelatorio()">
+                <div id="rel_busca_resultados"
+                     class="hidden z-30 mt-1 bg-white border-2 border-evg-blue/30 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain"></div>
               </div>
               <div id="rel_voluntarios_selecionados" class="flex flex-wrap gap-2 mt-3 min-h-[2rem]"></div>
             </div>
@@ -1660,8 +1667,8 @@
       if (voluntarios.length === 0) {
         if (termo) {
           const safe = termo.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-          box.innerHTML = `<button type="button" onclick="adicionarVolRelatorio('${safe}')"
-            class="w-full text-left px-3 py-2 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
+          box.innerHTML = `<button type="button" onmousedown="event.preventDefault(); adicionarVolRelatorio('${safe}')" ontouchend="event.preventDefault(); adicionarVolRelatorio('${safe}')"
+            class="w-full text-left px-3 py-3 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
         } else {
           box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Digite o nome do voluntário e escolha "Usar o nome digitado".</p>';
         }
@@ -1672,8 +1679,8 @@
       if (lista.length === 0) {
         if (termo) {
           const safe = termo.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-          box.innerHTML = `<button type="button" onclick="adicionarVolRelatorio('${safe}')"
-            class="w-full text-left px-3 py-2 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
+          box.innerHTML = `<button type="button" onmousedown="event.preventDefault(); adicionarVolRelatorio('${safe}')" ontouchend="event.preventDefault(); adicionarVolRelatorio('${safe}')"
+            class="w-full text-left px-3 py-3 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
         } else {
           box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Nenhum voluntário encontrado</p>';
         }
@@ -1681,10 +1688,12 @@
         return;
       }
 
-      box.innerHTML = lista.slice(0, 20).map(v => {
+      box.innerHTML = lista.slice(0, 30).map(v => {
         const nomeSafe = (v.nome || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        return `<button type="button" onclick="adicionarVolRelatorio('${nomeSafe}')"
-                class="w-full text-left px-3 py-2 text-sm hover:bg-evg-light border-b border-gray-50 last:border-0">
+        return `<button type="button"
+                onmousedown="event.preventDefault(); adicionarVolRelatorio('${nomeSafe}')"
+                ontouchend="event.preventDefault(); adicionarVolRelatorio('${nomeSafe}')"
+                class="w-full text-left px-3 py-3 text-sm hover:bg-evg-light active:bg-evg-light border-b border-gray-100 last:border-0">
           ${v.nome} <span class="text-xs text-gray-400">${v.projeto_principal ? '• ' + v.projeto_principal : ''}</span>
         </button>`;
       }).join('');
@@ -1695,8 +1704,10 @@
       if (!nome || relVolSelecionados.includes(nome)) return;
       relVolSelecionados.push(nome);
       renderVolSelecionados();
-      document.getElementById('rel_busca_vol').value = '';
-      document.getElementById('rel_busca_resultados').classList.add('hidden');
+      const inp = document.getElementById('rel_busca_vol');
+      if (inp) inp.value = '';
+      const box = document.getElementById('rel_busca_resultados');
+      if (box) box.classList.add('hidden');
     }
 
     function removerVolRelatorio(nome) {
@@ -1719,12 +1730,13 @@
       `).join('');
     }
 
-    // Fecha busca ao clicar fora
+    // Fecha busca ao clicar fora (mobile-safe)
     document.addEventListener('click', (e) => {
       const box = document.getElementById('rel_busca_resultados');
       const input = document.getElementById('rel_busca_vol');
       if (!box || !input) return;
-      if (!box.contains(e.target) && e.target !== input) box.classList.add('hidden');
+      if (e.target.closest('#rel_busca_resultados') || e.target.closest('#rel_busca_vol')) return;
+      box.classList.add('hidden');
     });
 
     document.getElementById('form-relatorio-grupo').addEventListener('submit', async (e) => {
