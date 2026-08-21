@@ -760,6 +760,14 @@
     const SUPABASE_KEY = 'sb_publishable_HVhB1YSbOR_NbdLdeXpsEw_pNHLnnDm';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // Link público só do relatório: ?relatorio=1  (sem login)
+    const MODO_PUBLICO_RELATORIO = (() => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        return q.get('relatorio') === '1' || q.get('publico') === '1';
+      } catch (e) { return false; }
+    })();
+
     const PROJETOS = [
       'Secretária',
       'Anjos da Madrugada',
@@ -912,21 +920,56 @@
       }
     }
 
-    // Sessão existente
-    supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
-      const userId = session.user.id;
-      const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', userId).maybeSingle();
-      if (!perfil) return;
-      usuarioLogado = {
-        id: userId,
-        email: session.user.email,
-        nome: perfil.nome || session.user.email,
-        tipo: perfil.tipo,
-        role: perfil.tipo === 'gestao' ? 'Gestão' : 'Coordenador de Grupo'
-      };
-      await iniciarApp();
-    });
+    async function iniciarModoPublicoRelatorio() {
+      usuarioLogado = { nome: 'Coordenador', tipo: 'coordenador', role: 'Link público', publico: true };
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      // Esconde menu lateral e barra mobile — só o formulário
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) sidebar.classList.add('hidden');
+      const topMobile = document.querySelector('main > .md\\:hidden');
+      // barra topo
+      const barras = document.querySelectorAll('main > div.md\\:hidden, main > .md\\:hidden');
+      document.querySelectorAll('main > div').forEach(el => {
+        if (el.className && el.className.includes('md:hidden') && el.className.includes('sticky')) {
+          el.classList.add('hidden');
+        }
+      });
+      const main = document.querySelector('main');
+      if (main) {
+        main.classList.remove('md:ml-64');
+        main.classList.add('ml-0');
+      }
+      // tenta carregar nomes (se a policy permitir); se não, ainda pode digitar
+      try { await carregarVoluntarios(); } catch (e) {}
+      preencherProjetos();
+      preencherFormGrupo();
+      showPage('form-grupo');
+      const titulo = document.querySelector('#page-form-grupo h1');
+      if (titulo) titulo.textContent = 'Relatório do Grupo — EVG';
+      const sub = document.querySelector('#page-form-grupo > p.text-sm');
+      if (sub) sub.textContent = 'Preencha e envie. Não é necessário fazer login.';
+    }
+
+    // Sessão existente OU modo público
+    if (MODO_PUBLICO_RELATORIO) {
+      iniciarModoPublicoRelatorio();
+    } else {
+      supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
+        if (!session) return;
+        const userId = session.user.id;
+        const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', userId).maybeSingle();
+        if (!perfil) return;
+        usuarioLogado = {
+          id: userId,
+          email: session.user.email,
+          nome: perfil.nome || session.user.email,
+          tipo: perfil.tipo,
+          role: perfil.tipo === 'gestao' ? 'Gestão' : 'Coordenador de Grupo'
+        };
+        await iniciarApp();
+      });
+    }
 
     // ===================== MENU MOBILE =====================
     function abrirMenuMobile() {
@@ -1615,13 +1658,25 @@
       lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
 
       if (voluntarios.length === 0) {
-        box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Nenhum voluntário no sistema. Cadastre com login da gestão (thiago/juliana).</p>';
+        if (termo) {
+          const safe = termo.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          box.innerHTML = `<button type="button" onclick="adicionarVolRelatorio('${safe}')"
+            class="w-full text-left px-3 py-2 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
+        } else {
+          box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Digite o nome do voluntário e escolha "Usar o nome digitado".</p>';
+        }
         box.classList.remove('hidden');
         return;
       }
 
       if (lista.length === 0) {
-        box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Nenhum voluntário encontrado' + (termo ? ' com esse nome' : '') + '</p>';
+        if (termo) {
+          const safe = termo.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          box.innerHTML = `<button type="button" onclick="adicionarVolRelatorio('${safe}')"
+            class="w-full text-left px-3 py-2 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
+        } else {
+          box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Nenhum voluntário encontrado</p>';
+        }
         box.classList.remove('hidden');
         return;
       }
