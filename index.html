@@ -202,6 +202,16 @@
           </select>
         </div>
 
+        <div id="contador-voluntarios" class="mb-3 text-sm text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+          <span>Exibindo: <strong id="cont-exibindo">0</strong></span>
+          <span class="text-gray-400">|</span>
+          <span>Total cadastrados: <strong id="cont-total">0</strong></span>
+          <span class="text-gray-400">|</span>
+          <span>Obreiros: <strong id="cont-obreiros">0</strong></span>
+          <span class="text-gray-400">|</span>
+          <span>Voluntários / evangelistas: <strong id="cont-voluntarios-tipo">0</strong></span>
+        </div>
+
         <div class="bg-white rounded-xl shadow overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -1159,11 +1169,15 @@
       showPage('voluntarios');
     });
 
+    function isObreiroTipo(v) {
+      return v.tipo_obreiro === true || v.funcao_evg === 'Obreiro' || v.funcao_evg === 'Coordenador de Projeto' || v.funcao_evg === 'Coordenador Geral' || v.funcao_evg === 'Secretária';
+    }
+
     function renderTabela() {
-      const busca = document.getElementById('busca').value.toLowerCase();
-      const filtroProj = document.getElementById('filtro-projeto').value;
+      const busca = document.getElementById('busca')?.value.toLowerCase() || '';
+      const filtroProj = document.getElementById('filtro-projeto')?.value || '';
       const filtroTipo = document.getElementById('filtro-tipo')?.value || '';
-      const filtroStatus = document.getElementById('filtro-status').value;
+      const filtroStatus = document.getElementById('filtro-status')?.value || 'todos';
 
       let lista = [...voluntarios];
 
@@ -1176,9 +1190,9 @@
         lista = lista.filter(v => (v.projetos || []).includes(filtroProj) || v.projeto_principal === filtroProj);
       }
       if (filtroTipo === 'obreiros') {
-        lista = lista.filter(v => v.tipo_obreiro === true || v.funcao_evg === 'Obreiro' || v.funcao_evg === 'Coordenador de Projeto' || v.funcao_evg === 'Coordenador Geral');
+        lista = lista.filter(v => isObreiroTipo(v));
       } else if (filtroTipo === 'voluntarios') {
-        lista = lista.filter(v => v.tipo_voluntario === true || v.funcao_evg === 'Evangelista' || (!v.tipo_obreiro && v.funcao_evg !== 'Obreiro' && v.funcao_evg !== 'Coordenador de Projeto' && v.funcao_evg !== 'Coordenador Geral'));
+        lista = lista.filter(v => !isObreiroTipo(v));
       }
       if (busca) {
         lista = lista.filter(v =>
@@ -1190,15 +1204,28 @@
       // Ordena por nome
       lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
 
+      // Contadores (sempre sobre a base completa + o que a lista filtrada mostra)
+      const totalAll = voluntarios.length;
+      const nObreiros = voluntarios.filter(isObreiroTipo).length;
+      const nVols = totalAll - nObreiros;
+      const elEx = document.getElementById('cont-exibindo');
+      const elTot = document.getElementById('cont-total');
+      const elObr = document.getElementById('cont-obreiros');
+      const elVol = document.getElementById('cont-voluntarios-tipo');
+      if (elEx) elEx.textContent = lista.length;
+      if (elTot) elTot.textContent = totalAll;
+      if (elObr) elObr.textContent = nObreiros;
+      if (elVol) elVol.textContent = nVols;
+
       const tbody = document.getElementById('tabela-voluntarios');
       const sem = document.getElementById('sem-resultados');
 
       if (lista.length === 0) {
         tbody.innerHTML = '';
-        sem.classList.remove('hidden');
+        if (sem) sem.classList.remove('hidden');
         return;
       }
-      sem.classList.add('hidden');
+      if (sem) sem.classList.add('hidden');
 
       tbody.innerHTML = lista.map(v => {
         // Último atendimento desta pessoa
