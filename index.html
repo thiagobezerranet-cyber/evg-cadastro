@@ -699,7 +699,69 @@
                 <label class="block text-sm font-medium mb-1">Quantos voluntários estavam no projeto? *</label>
                 <input type="number" id="rel_qtd_voluntarios" min="0" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 5">
               </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Quantas almas foram à igreja?</label>
+                <input type="number" id="rel_almas_igreja" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 10">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Quantas visitas foram agendadas ou foram feitas?</label>
+                <input type="number" id="rel_visitas" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 5">
+              </div>
             </div>
+
+            <!-- Campos extras conforme o grupo escolhido -->
+            <div id="extras-unisocial" class="hidden mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+              <p class="text-sm font-semibold text-evg-blue mb-3">Perguntas específicas — Unisocial</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Quantas cestas básicas foram doadas?</label>
+                  <input type="number" id="rel_cestas_basicas" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 20">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">Quantos brindes ou brinquedos foram doados?</label>
+                  <input type="number" id="rel_brindes_brinquedos" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 15">
+                </div>
+              </div>
+            </div>
+
+            <div id="extras-fome-palavra" class="hidden mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+              <p class="text-sm font-semibold text-evg-blue mb-3">Perguntas específicas — Fome da Palavra</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Quantas Bíblias foram doadas?</label>
+                  <input type="number" id="rel_biblias" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 30">
+                </div>
+              </div>
+            </div>
+
+            <div id="extras-guardioes" class="hidden mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+              <p class="text-sm font-semibold text-evg-blue mb-3">Perguntas específicas — Guardiões da estrada</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Quantos kits de higiene foram doados?</label>
+                  <input type="number" id="rel_kits_higiene" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 12">
+                </div>
+              </div>
+            </div>
+
+            <div id="extras-anjos" class="hidden mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+              <p class="text-sm font-semibold text-evg-blue mb-3">Perguntas específicas — Anjos da Madrugada</p>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Quantas marmitas foram doadas?</label>
+                  <input type="number" id="rel_marmitas" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 40">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">Quantos cobertores foram doados?</label>
+                  <input type="number" id="rel_cobertores" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 10">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">Quantos agasalhos foram doados?</label>
+                  <input type="number" id="rel_agasalhos" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 15">
+                </div>
+              </div>
+            </div>
+
             <div class="mt-4">
               <label class="block text-sm font-medium mb-1">Quais voluntários estavam no projeto, ajudando?</label>
               <p class="text-xs text-gray-500 mb-2">Digite para buscar e toque/clique no nome para adicionar. Pode adicionar vários.</p>
@@ -1045,7 +1107,10 @@
       if (select) select.innerHTML = '<option value="">Selecione</option>';
       if (filtro) filtro.innerHTML = '<option value="">Todos os projetos</option>';
       if (coordSelect) coordSelect.innerHTML = '<option value="">Selecione o projeto</option>';
-      if (relGrupo) relGrupo.innerHTML = '<option value="">Selecione o grupo / projeto</option>';
+      if (relGrupo) {
+        relGrupo.innerHTML = '<option value="">Selecione o grupo / projeto</option>';
+        relGrupo.onchange = atualizarCamposExtrasGrupo;
+      }
 
       PROJETOS.forEach(p => {
         if (container) {
@@ -1650,6 +1715,29 @@
       if (box) box.classList.add('hidden');
       const busca = document.getElementById('rel_busca_vol');
       if (busca) busca.value = '';
+      // Limpa e esconde campos extras por grupo
+      atualizarCamposExtrasGrupo();
+    }
+
+    function atualizarCamposExtrasGrupo() {
+      const grupo = (document.getElementById('rel_grupo')?.value || '').trim();
+      const map = {
+        'Unisocial': 'extras-unisocial',
+        'Fome da Palavra': 'extras-fome-palavra',
+        'Guardiões da estrada': 'extras-guardioes',
+        'Anjos da Madrugada': 'extras-anjos'
+      };
+      // Esconde todos
+      Object.values(map).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+      // Mostra o do grupo selecionado
+      const showId = map[grupo];
+      if (showId) {
+        const el = document.getElementById(showId);
+        if (el) el.classList.remove('hidden');
+      }
     }
 
     function filtrarVolRelatorio() {
@@ -1743,13 +1831,28 @@
       e.preventDefault();
 
       const agora = new Date();
+      const num = (id) => {
+        const v = document.getElementById(id)?.value;
+        if (v === '' || v === undefined || v === null) return null;
+        const n = parseInt(v, 10);
+        return isNaN(n) ? null : n;
+      };
       const rel = {
         mes: mesKey(agora.toISOString()),
         coordenador: document.getElementById('rel_coordenador').value.trim(),
         auxiliar: document.getElementById('rel_auxiliar').value.trim(),
         grupo: document.getElementById('rel_grupo').value,
-        alcancadas: parseInt(document.getElementById('rel_alcancadas').value, 10) || 0,
-        qtd_voluntarios: parseInt(document.getElementById('rel_qtd_voluntarios').value, 10) || 0,
+        alcancadas: num('rel_alcancadas') ?? 0,
+        qtd_voluntarios: num('rel_qtd_voluntarios') ?? 0,
+        almas_igreja: num('rel_almas_igreja'),
+        visitas: num('rel_visitas'),
+        cestas_basicas: num('rel_cestas_basicas'),
+        brindes_brinquedos: num('rel_brindes_brinquedos'),
+        biblias: num('rel_biblias'),
+        kits_higiene: num('rel_kits_higiene'),
+        marmitas: num('rel_marmitas'),
+        cobertores: num('rel_cobertores'),
+        agasalhos: num('rel_agasalhos'),
         voluntarios: [...relVolSelecionados],
         melhorar: document.getElementById('rel_melhorar').value.trim(),
         ideias: document.getElementById('rel_ideias').value.trim(),
@@ -1831,9 +1934,18 @@
               </button>
             </div>
           </div>
-          <div class="flex flex-wrap gap-4 text-sm mb-3">
+          <div class="flex flex-wrap gap-2 text-sm mb-3">
             <span class="bg-blue-50 text-evg-blue px-3 py-1 rounded-full"><strong>Alcançadas:</strong> ${r.alcancadas ?? '—'}</span>
             <span class="bg-green-50 text-green-700 px-3 py-1 rounded-full"><strong>Voluntários no projeto:</strong> ${r.qtd_voluntarios ?? '—'}</span>
+            ${r.almas_igreja != null ? `<span class="bg-purple-50 text-purple-700 px-3 py-1 rounded-full"><strong>Almas à igreja:</strong> ${r.almas_igreja}</span>` : ''}
+            ${r.visitas != null ? `<span class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full"><strong>Visitas:</strong> ${r.visitas}</span>` : ''}
+            ${r.cestas_basicas != null ? `<span class="bg-amber-50 text-amber-800 px-3 py-1 rounded-full"><strong>Cestas básicas:</strong> ${r.cestas_basicas}</span>` : ''}
+            ${r.brindes_brinquedos != null ? `<span class="bg-amber-50 text-amber-800 px-3 py-1 rounded-full"><strong>Brindes/brinquedos:</strong> ${r.brindes_brinquedos}</span>` : ''}
+            ${r.biblias != null ? `<span class="bg-amber-50 text-amber-800 px-3 py-1 rounded-full"><strong>Bíblias:</strong> ${r.biblias}</span>` : ''}
+            ${r.kits_higiene != null ? `<span class="bg-amber-50 text-amber-800 px-3 py-1 rounded-full"><strong>Kits higiene:</strong> ${r.kits_higiene}</span>` : ''}
+            ${r.marmitas != null ? `<span class="bg-amber-50 text-amber-800 px-3 py-1 rounded-full"><strong>Marmitas:</strong> ${r.marmitas}</span>` : ''}
+            ${r.cobertores != null ? `<span class="bg-amber-50 text-amber-800 px-3 py-1 rounded-full"><strong>Cobertores:</strong> ${r.cobertores}</span>` : ''}
+            ${r.agasalhos != null ? `<span class="bg-amber-50 text-amber-800 px-3 py-1 rounded-full"><strong>Agasalhos:</strong> ${r.agasalhos}</span>` : ''}
           </div>
           <p class="text-sm mb-2"><strong>Voluntários que ajudaram:</strong> ${(r.voluntarios || []).join(', ') || '—'}</p>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm mt-3">
@@ -1889,6 +2001,15 @@
           <p><strong>Auxiliar:</strong> ${r.auxiliar || '—'}</p>
           <p><strong>Pessoas alcançadas:</strong> ${r.alcancadas ?? '—'}</p>
           <p><strong>Qtd. voluntários no projeto:</strong> ${r.qtd_voluntarios ?? '—'}</p>
+          <p><strong>Almas à igreja:</strong> ${r.almas_igreja ?? '—'}</p>
+          <p><strong>Visitas agendadas/feitas:</strong> ${r.visitas ?? '—'}</p>
+          ${r.cestas_basicas != null ? `<p><strong>Cestas básicas doadas:</strong> ${r.cestas_basicas}</p>` : ''}
+          ${r.brindes_brinquedos != null ? `<p><strong>Brindes ou brinquedos doados:</strong> ${r.brindes_brinquedos}</p>` : ''}
+          ${r.biblias != null ? `<p><strong>Bíblias doadas:</strong> ${r.biblias}</p>` : ''}
+          ${r.kits_higiene != null ? `<p><strong>Kits de higiene doados:</strong> ${r.kits_higiene}</p>` : ''}
+          ${r.marmitas != null ? `<p><strong>Marmitas doadas:</strong> ${r.marmitas}</p>` : ''}
+          ${r.cobertores != null ? `<p><strong>Cobertores doados:</strong> ${r.cobertores}</p>` : ''}
+          ${r.agasalhos != null ? `<p><strong>Agasalhos doados:</strong> ${r.agasalhos}</p>` : ''}
           <p><strong>Voluntários que ajudaram:</strong> ${(r.voluntarios || []).join(', ') || '—'}</p>
           <h2>O que podemos melhorar?</h2>
           <p>${r.melhorar || '—'}</p>
