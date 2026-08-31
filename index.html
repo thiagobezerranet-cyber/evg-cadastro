@@ -936,9 +936,21 @@
               <label class="block text-sm font-medium mb-1">Quantas vieram à igreja</label>
               <input type="number" id="nucleo-vieram-igreja" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 3">
             </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Local do núcleo</label>
+              <input type="text" id="nucleo-local" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: Casa da Maria, salão...">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Bairro</label>
+              <input type="text" id="nucleo-bairro" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: Pae Cara">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Horário</label>
+              <input type="text" id="nucleo-horario" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: Quarta 19h30">
+            </div>
             <div class="md:col-span-2">
-              <label class="block text-sm font-medium mb-1">Observação</label>
-              <input type="text" id="nucleo-obs" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Opcional">
+              <label class="block text-sm font-medium mb-1">Comentários (para ajudar)</label>
+              <textarea id="nucleo-obs" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Anotações, pedidos de ajuda, situação do núcleo..."></textarea>
             </div>
           </div>
           <div class="pt-2">
@@ -2462,6 +2474,9 @@
       const obs = (document.getElementById('nucleo-obs').value || '').trim();
       const qtdPessoas = document.getElementById('nucleo-qtd-pessoas').value;
       const vieramIgreja = document.getElementById('nucleo-vieram-igreja').value;
+      const local = (document.getElementById('nucleo-local')?.value || '').trim();
+      const bairro = (document.getElementById('nucleo-bairro')?.value || '').trim();
+      const horario = (document.getElementById('nucleo-horario')?.value || '').trim();
 
       if (!dataSemana || !grupo || !nome) {
         alert('Preencha data, grupo e nome.');
@@ -2474,6 +2489,9 @@
         nome: nome,
         qtd_pessoas: qtdPessoas === '' ? null : parseInt(qtdPessoas, 10),
         vieram_igreja: vieramIgreja === '' ? null : parseInt(vieramIgreja, 10),
+        local: local || null,
+        bairro: bairro || null,
+        horario: horario || null,
         observacao: obs || null,
         mes: dataSemana.slice(0, 7),
         registrado_por: usuarioLogado?.nome || null
@@ -2566,7 +2584,12 @@
                 ${r.qtd_pessoas != null ? `<span class="bg-blue-50 text-evg-blue px-2 py-0.5 rounded-full">Pessoas no núcleo: <strong>${r.qtd_pessoas}</strong></span>` : ''}
                 ${r.vieram_igreja != null ? `<span class="bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Vieram à igreja: <strong>${r.vieram_igreja}</strong></span>` : ''}
               </div>
-              ${r.observacao ? `<div class="text-sm text-gray-500 mt-1">${r.observacao}</div>` : ''}
+              <div class="text-sm text-gray-600 mt-2">
+                ${r.local ? `<div><strong>Local:</strong> ${r.local}</div>` : ''}
+                ${r.bairro ? `<div><strong>Bairro:</strong> ${r.bairro}</div>` : ''}
+                ${r.horario ? `<div><strong>Horário:</strong> ${r.horario}</div>` : ''}
+              </div>
+              ${r.observacao ? `<div class="text-sm text-gray-500 mt-1"><strong>Comentários:</strong> ${r.observacao}</div>` : ''}
               <div class="text-xs text-gray-400 mt-1">${mesLabel(r.mes || '')}${r.registrado_por ? ' • por ' + r.registrado_por : ''}</div>
             </div>
             <button type="button" onclick="excluirNucleo('${r.id}')" class="text-red-600 text-sm hover:underline h-fit">Excluir</button>
