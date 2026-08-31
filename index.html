@@ -127,6 +127,10 @@
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>✝️</span> Almas / Domingo
           </button>
+          <button onclick="showPage('nucleos')" data-page="nucleos"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>🏠</span> Núcleos
+          </button>
         </div>
         <!-- Menu só coordenador -->
         <div id="menu-coordenador" class="hidden">
@@ -897,6 +901,60 @@
         <div id="lista-almas" class="space-y-4"></div>
       </div>
 
+      <!-- NÚCLEOS (só gestão) -->
+      <div id="page-nucleos" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Relatório de Núcleos</h1>
+        <p class="text-sm text-gray-500 mb-6">Lançamento semanal. Informe a pessoa e de qual grupo o núcleo faz parte (EVG, Jovem, Saúde…). Só gestão.</p>
+
+        <div id="nucleos-sucesso" class="hidden mb-6 max-w-3xl rounded-xl border border-green-300 bg-green-50 p-4">
+          <p class="font-semibold text-green-800">✅ Núcleo registrado com sucesso!</p>
+        </div>
+
+        <form id="form-nucleos" class="bg-white rounded-xl shadow p-6 space-y-5 max-w-3xl mb-8">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1">Data (semana) *</label>
+              <input type="date" id="nucleo-data" required class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Grupo *</label>
+              <select id="nucleo-grupo" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option value="EVG">EVG</option>
+                <option value="Grupo Jovem">Grupo Jovem</option>
+                <option value="Grupo da Saúde">Grupo da Saúde</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium mb-1">Nome da pessoa / responsável do núcleo *</label>
+              <input type="text" id="nucleo-nome" required list="nucleos-nomes-list" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Nome completo">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium mb-1">Observação</label>
+              <input type="text" id="nucleo-obs" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Opcional">
+            </div>
+          </div>
+          <div class="pt-2">
+            <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
+              Salvar núcleo
+            </button>
+          </div>
+        </form>
+
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <h2 class="text-lg font-semibold text-evg-blue">Histórico e totais do mês</h2>
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-600">Mês:</label>
+            <select id="filtro-mes-nucleos" class="px-3 py-2 border rounded-lg text-sm" onchange="renderNucleosHistorico()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+        </div>
+        <div id="nucleos-resumo-mes" class="mb-4 text-sm text-gray-700"></div>
+        <div id="lista-nucleos" class="space-y-3"></div>
+      </div>
+
       </div><!-- fim padding conteúdo -->
     </main>
   </div>
@@ -940,6 +998,7 @@
     let atendimentos = [];
     let relatoriosGrupos = [];
     let almasRegistros = [];
+    let nucleosRegistros = [];
     let voluntarioAtualId = null;
     let almasLinhaSeq = 0;
 
@@ -1002,8 +1061,21 @@
       }));
     }
 
+    async function carregarNucleos() {
+      const { data, error } = await supabaseClient.from('nucleos').select('*').order('data_semana', { ascending: false });
+      if (error) {
+        console.error('Erro nucleos:', error);
+        nucleosRegistros = [];
+        return;
+      }
+      nucleosRegistros = (data || []).map(r => ({
+        ...r,
+        mes: r.mes || (r.data_semana ? String(r.data_semana).slice(0, 7) : '')
+      }));
+    }
+
     async function carregarTudo() {
-      await Promise.all([carregarVoluntarios(), carregarAtendimentos(), carregarRelatorios(), carregarAlmas()]);
+      await Promise.all([carregarVoluntarios(), carregarAtendimentos(), carregarRelatorios(), carregarAlmas(), carregarNucleos()]);
     }
 
     // ===================== LOGIN =====================
@@ -1191,6 +1263,10 @@
       if (page === 'almas') {
         initFormAlmas();
         renderAlmasHistorico();
+      }
+      if (page === 'nucleos') {
+        initFormNucleos();
+        renderNucleosHistorico();
       }
     }
 
@@ -2335,6 +2411,147 @@
       }
       await carregarAlmas();
       renderAlmasHistorico();
+    }
+
+    // ===================== NÚCLEOS =====================
+    function initFormNucleos() {
+      const dataEl = document.getElementById('nucleo-data');
+      if (dataEl && !dataEl.value) {
+        dataEl.value = new Date().toISOString().slice(0, 10);
+      }
+      // datalist com nomes cadastrados (opcional)
+      let list = document.getElementById('nucleos-nomes-list');
+      if (!list) {
+        list = document.createElement('datalist');
+        list.id = 'nucleos-nomes-list';
+        document.body.appendChild(list);
+      }
+      const nomes = voluntarios
+        .filter(v => v && v.nome && isAtivo(v))
+        .map(v => v.nome)
+        .sort((a, b) => a.localeCompare(b));
+      list.innerHTML = nomes.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
+      const ok = document.getElementById('nucleos-sucesso');
+      if (ok) ok.classList.add('hidden');
+    }
+
+    document.getElementById('form-nucleos')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const dataSemana = document.getElementById('nucleo-data').value;
+      const grupo = document.getElementById('nucleo-grupo').value;
+      const nome = (document.getElementById('nucleo-nome').value || '').trim();
+      const obs = (document.getElementById('nucleo-obs').value || '').trim();
+
+      if (!dataSemana || !grupo || !nome) {
+        alert('Preencha data, grupo e nome.');
+        return;
+      }
+
+      const registro = {
+        data_semana: dataSemana,
+        grupo: grupo,
+        nome: nome,
+        observacao: obs || null,
+        mes: dataSemana.slice(0, 7),
+        registrado_por: usuarioLogado?.nome || null
+      };
+
+      const { error } = await supabaseClient.from('nucleos').insert([registro]);
+      if (error) {
+        alert('Erro ao salvar: ' + error.message + '\n\nSe a tabela ainda não existe, rode o SQL dos núcleos no Supabase.');
+        return;
+      }
+
+      await carregarNucleos();
+      document.getElementById('form-nucleos').reset();
+      initFormNucleos();
+      renderNucleosHistorico();
+
+      const okBox = document.getElementById('nucleos-sucesso');
+      if (okBox) {
+        okBox.classList.remove('hidden');
+        okBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => okBox.classList.add('hidden'), 10000);
+      }
+      try { alert('Núcleo registrado!'); } catch (err) {}
+    });
+
+    function renderNucleosHistorico() {
+      const container = document.getElementById('lista-nucleos');
+      const resumo = document.getElementById('nucleos-resumo-mes');
+      if (!container) return;
+
+      const sel = document.getElementById('filtro-mes-nucleos');
+      if (sel) {
+        const atual = sel.value;
+        const meses = [...new Set(nucleosRegistros.map(r => r.mes || (r.data_semana || '').slice(0, 7)).filter(Boolean))].sort().reverse();
+        sel.innerHTML = '<option value="">Todos os meses</option>' + meses.map(m =>
+          `<option value="${m}">${mesLabel(m)}</option>`
+        ).join('');
+        if (meses.includes(atual)) sel.value = atual;
+      }
+      const filtroMes = sel?.value || '';
+
+      let lista = [...nucleosRegistros];
+      if (filtroMes) lista = lista.filter(r => (r.mes || (r.data_semana || '').slice(0, 7)) === filtroMes);
+      lista.sort((a, b) => String(b.data_semana).localeCompare(String(a.data_semana)) || (a.grupo || '').localeCompare(b.grupo || ''));
+
+      // Totais por grupo no período filtrado
+      const porGrupo = {};
+      lista.forEach(r => {
+        const g = r.grupo || 'Outro';
+        porGrupo[g] = (porGrupo[g] || 0) + 1;
+      });
+      const totalGeral = lista.length;
+
+      if (resumo) {
+        const chips = Object.entries(porGrupo)
+          .sort((a, b) => b[1] - a[1])
+          .map(([g, q]) => `<span class="inline-block bg-evg-light text-evg-blue px-3 py-1 rounded-full text-sm mr-2 mb-2"><strong>${g}:</strong> ${q} núcleo(s)</span>`)
+          .join('');
+        resumo.innerHTML = `
+          <div class="mb-2">
+            <span class="font-medium text-evg-blue">${filtroMes ? mesLabel(filtroMes) : 'Todos os períodos'}:</span>
+            <strong>${totalGeral}</strong> núcleo(s) no total
+          </div>
+          <div>${chips || '<span class="text-gray-400">Sem dados</span>'}</div>
+        `;
+      }
+
+      if (lista.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 bg-white rounded-xl shadow p-6">Nenhum núcleo neste período.</p>';
+        return;
+      }
+
+      container.innerHTML = lista.map(r => {
+        const dataFmt = r.data_semana ? r.data_semana.split('-').reverse().join('/') : '—';
+        return `
+          <div class="bg-white rounded-xl shadow p-4 border-l-4 border-evg-red flex flex-wrap justify-between gap-2">
+            <div>
+              <div class="font-semibold text-evg-blue">${r.nome || '—'}</div>
+              <div class="text-sm text-gray-600">
+                <span class="inline-block bg-gray-100 px-2 py-0.5 rounded text-xs mr-2">${r.grupo || '—'}</span>
+                ${dataFmt}
+                ${r.observacao ? ' • ' + r.observacao : ''}
+              </div>
+              <div class="text-xs text-gray-400 mt-1">${mesLabel(r.mes || '')}${r.registrado_por ? ' • por ' + r.registrado_por : ''}</div>
+            </div>
+            <button type="button" onclick="excluirNucleo('${r.id}')" class="text-red-600 text-sm hover:underline h-fit">Excluir</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function excluirNucleo(id) {
+      if (!id) return;
+      if (!confirm('Excluir este registro de núcleo?')) return;
+      const { error } = await supabaseClient.from('nucleos').delete().eq('id', id);
+      if (error) {
+        alert('Erro ao excluir: ' + error.message);
+        return;
+      }
+      await carregarNucleos();
+      renderNucleosHistorico();
     }
   </script>
 </body>
