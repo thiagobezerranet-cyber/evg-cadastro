@@ -123,6 +123,10 @@
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>📋</span> Relatórios dos Grupos
           </button>
+          <button onclick="showPage('almas')" data-page="almas"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>✝️</span> Almas / Domingo
+          </button>
         </div>
         <!-- Menu só coordenador -->
         <div id="menu-coordenador" class="hidden">
@@ -819,6 +823,80 @@
         </div>
         <div id="lista-relatorios-grupos" class="space-y-4"></div>
       </div>
+
+      <!-- ALMAS / DOMINGO (só gestão) -->
+      <div id="page-almas" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Almas / Domingo</h1>
+        <p class="text-sm text-gray-500 mb-6">Registre quantas almas cada evangelista trouxe no culto ou evento. Só gestão (Thiago e Juliana).</p>
+
+        <div id="almas-sucesso" class="hidden mb-6 max-w-3xl rounded-xl border border-green-300 bg-green-50 p-4">
+          <p class="font-semibold text-green-800">✅ Registro salvo com sucesso!</p>
+        </div>
+
+        <form id="form-almas" class="bg-white rounded-xl shadow p-6 space-y-6 max-w-3xl mb-8">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1">Data do evento *</label>
+              <input type="date" id="almas-data" required class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Tipo</label>
+              <select id="almas-tipo" class="w-full px-3 py-2 border rounded-lg text-sm">
+                <option value="Domingo">Domingo</option>
+                <option value="Culto">Culto</option>
+                <option value="Evento">Evento</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Observação</label>
+              <input type="text" id="almas-obs" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Opcional">
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-sm font-medium">Evangelistas e almas *</label>
+              <button type="button" onclick="almasAddLinha()" class="text-sm text-evg-blue hover:underline">+ Adicionar linha</button>
+            </div>
+            <div class="overflow-x-auto border rounded-lg">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="text-left px-3 py-2">Evangelista</th>
+                    <th class="text-left px-3 py-2 w-28">Almas</th>
+                    <th class="w-12"></th>
+                  </tr>
+                </thead>
+                <tbody id="almas-linhas"></tbody>
+              </table>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Digite o nome (pode buscar cadastrado) e a quantidade de almas.</p>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t">
+            <div class="text-lg font-semibold text-evg-blue">
+              Total de almas: <span id="almas-total">0</span>
+            </div>
+            <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
+              Salvar registro
+            </button>
+          </div>
+        </form>
+
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <h2 class="text-lg font-semibold text-evg-blue">Histórico</h2>
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-600">Mês:</label>
+            <select id="filtro-mes-almas" class="px-3 py-2 border rounded-lg text-sm" onchange="renderAlmasHistorico()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+        </div>
+        <div id="almas-resumo-mes" class="mb-4 text-sm text-gray-600"></div>
+        <div id="lista-almas" class="space-y-4"></div>
+      </div>
+
       </div><!-- fim padding conteúdo -->
     </main>
   </div>
@@ -861,7 +939,9 @@
     let voluntarios = [];
     let atendimentos = [];
     let relatoriosGrupos = [];
+    let almasRegistros = [];
     let voluntarioAtualId = null;
+    let almasLinhaSeq = 0;
 
     function isAtivo(v) {
       return !v.status || v.status === 'ativo' || v.status === 'Ativo';
@@ -907,8 +987,23 @@
       }));
     }
 
+    async function carregarAlmas() {
+      const { data, error } = await supabaseClient.from('almas_eventos').select('*').order('data_evento', { ascending: false });
+      if (error) {
+        console.error('Erro almas:', error);
+        // Tabela pode ainda não existir — não trava o app
+        almasRegistros = [];
+        return;
+      }
+      almasRegistros = (data || []).map(r => ({
+        ...r,
+        itens: Array.isArray(r.itens) ? r.itens : (r.itens ? r.itens : []),
+        mes: r.mes || (r.data_evento ? String(r.data_evento).slice(0, 7) : '')
+      }));
+    }
+
     async function carregarTudo() {
-      await Promise.all([carregarVoluntarios(), carregarAtendimentos(), carregarRelatorios()]);
+      await Promise.all([carregarVoluntarios(), carregarAtendimentos(), carregarRelatorios(), carregarAlmas()]);
     }
 
     // ===================== LOGIN =====================
@@ -1092,6 +1187,10 @@
       }
       if (page === 'relatorios-grupos') {
         renderRelatoriosGrupos();
+      }
+      if (page === 'almas') {
+        initFormAlmas();
+        renderAlmasHistorico();
       }
     }
 
@@ -2022,6 +2121,220 @@
       `);
       w.document.close();
       setTimeout(() => { try { w.print(); } catch(e) {} }, 300);
+    }
+
+    // ===================== ALMAS / DOMINGO =====================
+    function initFormAlmas() {
+      const dataEl = document.getElementById('almas-data');
+      if (dataEl && !dataEl.value) {
+        const hoje = new Date();
+        dataEl.value = hoje.toISOString().slice(0, 10);
+      }
+      const tbody = document.getElementById('almas-linhas');
+      if (tbody && tbody.children.length === 0) {
+        almasAddLinha();
+        almasAddLinha();
+      }
+      almasRecalcTotal();
+      const ok = document.getElementById('almas-sucesso');
+      if (ok) ok.classList.add('hidden');
+    }
+
+    function almasAddLinha(nome = '', qtd = '') {
+      const tbody = document.getElementById('almas-linhas');
+      if (!tbody) return;
+      const id = 'almas-linha-' + (++almasLinhaSeq);
+      const tr = document.createElement('tr');
+      tr.id = id;
+      tr.innerHTML = `
+        <td class="px-2 py-2">
+          <input type="text" list="almas-nomes-list" class="almas-nome w-full px-2 py-2 border rounded-lg text-sm"
+                 placeholder="Nome do evangelista" value="${(nome || '').replace(/"/g, '&quot;')}">
+        </td>
+        <td class="px-2 py-2">
+          <input type="number" min="0" class="almas-qtd w-full px-2 py-2 border rounded-lg text-sm"
+                 placeholder="0" value="${qtd}" oninput="almasRecalcTotal()">
+        </td>
+        <td class="px-2 py-2 text-center">
+          <button type="button" onclick="almasRemoverLinha('${id}')" class="text-red-500 hover:underline text-sm">×</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+      almasAtualizarDatalist();
+    }
+
+    function almasRemoverLinha(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+      const tbody = document.getElementById('almas-linhas');
+      if (tbody && tbody.children.length === 0) almasAddLinha();
+      almasRecalcTotal();
+    }
+
+    function almasAtualizarDatalist() {
+      let list = document.getElementById('almas-nomes-list');
+      if (!list) {
+        list = document.createElement('datalist');
+        list.id = 'almas-nomes-list';
+        document.body.appendChild(list);
+      }
+      const nomes = voluntarios
+        .filter(v => v && v.nome && isAtivo(v))
+        .map(v => v.nome)
+        .sort((a, b) => a.localeCompare(b));
+      list.innerHTML = nomes.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
+    }
+
+    function almasRecalcTotal() {
+      let total = 0;
+      document.querySelectorAll('#almas-linhas .almas-qtd').forEach(inp => {
+        const n = parseInt(inp.value, 10);
+        if (!isNaN(n) && n > 0) total += n;
+      });
+      const el = document.getElementById('almas-total');
+      if (el) el.textContent = total;
+      return total;
+    }
+
+    function almasColetarItens() {
+      const itens = [];
+      document.querySelectorAll('#almas-linhas tr').forEach(tr => {
+        const nome = (tr.querySelector('.almas-nome')?.value || '').trim();
+        const qtd = parseInt(tr.querySelector('.almas-qtd')?.value, 10);
+        if (nome && !isNaN(qtd) && qtd >= 0) {
+          itens.push({ nome, quantidade: qtd });
+        }
+      });
+      return itens;
+    }
+
+    document.getElementById('form-almas')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const dataEvento = document.getElementById('almas-data').value;
+      const tipo = document.getElementById('almas-tipo').value;
+      const obs = (document.getElementById('almas-obs').value || '').trim();
+      const itens = almasColetarItens();
+      const total = itens.reduce((s, i) => s + (i.quantidade || 0), 0);
+
+      if (!dataEvento) {
+        alert('Informe a data do evento.');
+        return;
+      }
+      if (itens.length === 0) {
+        alert('Adicione pelo menos um evangelista com a quantidade de almas.');
+        return;
+      }
+
+      const mes = dataEvento.slice(0, 7);
+      const registro = {
+        data_evento: dataEvento,
+        tipo: tipo || 'Domingo',
+        observacao: obs || null,
+        mes: mes,
+        itens: itens,
+        total: total,
+        registrado_por: usuarioLogado?.nome || null
+      };
+
+      const { error } = await supabaseClient.from('almas_eventos').insert([registro]);
+      if (error) {
+        alert('Erro ao salvar: ' + error.message + '\n\nSe a tabela ainda não existe, rode o SQL que eu te enviei no Supabase.');
+        return;
+      }
+
+      await carregarAlmas();
+      document.getElementById('form-almas').reset();
+      document.getElementById('almas-linhas').innerHTML = '';
+      initFormAlmas();
+      renderAlmasHistorico();
+
+      const okBox = document.getElementById('almas-sucesso');
+      if (okBox) {
+        okBox.classList.remove('hidden');
+        okBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => okBox.classList.add('hidden'), 10000);
+      }
+      try { alert('Registro de almas salvo! Total: ' + total); } catch (err) {}
+    });
+
+    function renderAlmasHistorico() {
+      const container = document.getElementById('lista-almas');
+      const resumo = document.getElementById('almas-resumo-mes');
+      if (!container) return;
+
+      // Filtro mês
+      const sel = document.getElementById('filtro-mes-almas');
+      if (sel) {
+        const atual = sel.value;
+        const meses = [...new Set(almasRegistros.map(r => r.mes || (r.data_evento || '').slice(0, 7)).filter(Boolean))].sort().reverse();
+        sel.innerHTML = '<option value="">Todos os meses</option>' + meses.map(m =>
+          `<option value="${m}">${mesLabel(m)}</option>`
+        ).join('');
+        if (meses.includes(atual)) sel.value = atual;
+      }
+      const filtroMes = sel?.value || '';
+
+      let lista = [...almasRegistros];
+      if (filtroMes) lista = lista.filter(r => (r.mes || (r.data_evento || '').slice(0, 7)) === filtroMes);
+      lista.sort((a, b) => String(b.data_evento).localeCompare(String(a.data_evento)));
+
+      // Resumo
+      if (resumo) {
+        const totalMes = lista.reduce((s, r) => s + (r.total || 0), 0);
+        const ranking = {};
+        lista.forEach(r => {
+          (r.itens || []).forEach(i => {
+            ranking[i.nome] = (ranking[i.nome] || 0) + (i.quantidade || 0);
+          });
+        });
+        const top = Object.entries(ranking).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        resumo.innerHTML = `
+          <span class="font-medium text-evg-blue">${filtroMes ? mesLabel(filtroMes) : 'Todos os períodos'}:</span>
+          <strong>${lista.length}</strong> registro(s) •
+          <strong>${totalMes}</strong> almas no total
+          ${top.length ? ' • Top: ' + top.map(([n, q]) => n + ' (' + q + ')').join(', ') : ''}
+        `;
+      }
+
+      if (lista.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 bg-white rounded-xl shadow p-6">Nenhum registro neste período.</p>';
+        return;
+      }
+
+      container.innerHTML = lista.map(r => {
+        const dataFmt = r.data_evento ? r.data_evento.split('-').reverse().join('/') : '—';
+        const itensHtml = (r.itens || []).map(i =>
+          `<li class="flex justify-between gap-4 border-b border-gray-100 py-1"><span>${i.nome}</span><strong>${i.quantidade}</strong></li>`
+        ).join('');
+        return `
+          <div class="bg-white rounded-xl shadow p-5 border-l-4 border-evg-blue">
+            <div class="flex flex-wrap justify-between gap-2 mb-3">
+              <div>
+                <div class="font-semibold text-evg-blue text-lg">${r.tipo || 'Domingo'} — ${dataFmt}</div>
+                <div class="text-xs text-gray-400">${mesLabel(r.mes || '')}${r.registrado_por ? ' • por ' + r.registrado_por : ''}</div>
+                ${r.observacao ? `<div class="text-sm text-gray-600 mt-1">${r.observacao}</div>` : ''}
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">Total: ${r.total ?? 0}</span>
+                <button type="button" onclick="excluirAlmas('${r.id}')" class="text-red-600 text-sm hover:underline">Excluir</button>
+              </div>
+            </div>
+            <ul class="text-sm max-w-md">${itensHtml || '<li class="text-gray-400">Sem itens</li>'}</ul>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function excluirAlmas(id) {
+      if (!id) return;
+      if (!confirm('Excluir este registro de almas?')) return;
+      const { error } = await supabaseClient.from('almas_eventos').delete().eq('id', id);
+      if (error) {
+        alert('Erro ao excluir: ' + error.message);
+        return;
+      }
+      await carregarAlmas();
+      renderAlmasHistorico();
     }
   </script>
 </body>
