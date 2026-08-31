@@ -949,6 +949,22 @@
               <input type="text" id="nucleo-horario" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: Quarta 19h30">
             </div>
             <div class="md:col-span-2">
+              <label class="block text-sm font-medium mb-1">Voluntários que ajudaram</label>
+              <p class="text-xs text-gray-500 mb-2">Digite para buscar (cadastrado) ou use o nome digitado. Pode adicionar vários.</p>
+              <div class="relative">
+                <input type="text" id="nucleo_busca_vol"
+                       class="w-full px-3 py-2 border rounded-lg text-sm"
+                       placeholder="Buscar ou digitar nome do voluntário..."
+                       autocomplete="off"
+                       oninput="filtrarVolNucleo()"
+                       onkeyup="filtrarVolNucleo()"
+                       onfocus="filtrarVolNucleo()">
+                <div id="nucleo_busca_resultados"
+                     class="hidden z-30 mt-1 bg-white border-2 border-evg-blue/30 rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
+              </div>
+              <div id="nucleo_voluntarios_selecionados" class="flex flex-wrap gap-2 mt-3 min-h-[2rem]"></div>
+            </div>
+            <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Comentários (para ajudar)</label>
               <textarea id="nucleo-obs" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Anotações, pedidos de ajuda, situação do núcleo..."></textarea>
             </div>
@@ -1017,6 +1033,7 @@
     let relatoriosGrupos = [];
     let almasRegistros = [];
     let nucleosRegistros = [];
+    let nucleoVolSelecionados = [];
     let voluntarioAtualId = null;
     let almasLinhaSeq = 0;
 
@@ -2462,9 +2479,88 @@
       const grupos = [...new Set([...fixos, ...usados])].sort((a, b) => a.localeCompare(b));
       listG.innerHTML = grupos.map(g => `<option value="${g.replace(/"/g, '&quot;')}"></option>`).join('');
 
+      nucleoVolSelecionados = [];
+      renderVolNucleoSelecionados();
+      const box = document.getElementById('nucleo_busca_resultados');
+      if (box) box.classList.add('hidden');
+      const busca = document.getElementById('nucleo_busca_vol');
+      if (busca) busca.value = '';
+
       const ok = document.getElementById('nucleos-sucesso');
       if (ok) ok.classList.add('hidden');
     }
+
+    function filtrarVolNucleo() {
+      const termo = (document.getElementById('nucleo_busca_vol')?.value || '').toLowerCase().trim();
+      const box = document.getElementById('nucleo_busca_resultados');
+      if (!box) return;
+
+      let lista = voluntarios.filter(v => v && v.nome && isAtivo(v));
+      if (termo) lista = lista.filter(v => (v.nome || '').toLowerCase().includes(termo));
+      lista = lista.filter(v => !nucleoVolSelecionados.includes(v.nome));
+      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+      if (lista.length === 0) {
+        if (termo) {
+          const safe = termo.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          box.innerHTML = `<button type="button" onmousedown="event.preventDefault(); adicionarVolNucleo('${safe}')" ontouchend="event.preventDefault(); adicionarVolNucleo('${safe}')"
+            class="w-full text-left px-3 py-3 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
+        } else {
+          box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Digite o nome do voluntário</p>';
+        }
+        box.classList.remove('hidden');
+        return;
+      }
+
+      box.innerHTML = lista.slice(0, 30).map(v => {
+        const nomeSafe = (v.nome || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return `<button type="button"
+                onmousedown="event.preventDefault(); adicionarVolNucleo('${nomeSafe}')"
+                ontouchend="event.preventDefault(); adicionarVolNucleo('${nomeSafe}')"
+                class="w-full text-left px-3 py-3 text-sm hover:bg-evg-light border-b border-gray-100 last:border-0">
+          ${v.nome}
+        </button>`;
+      }).join('');
+      box.classList.remove('hidden');
+    }
+
+    function adicionarVolNucleo(nome) {
+      if (!nome || nucleoVolSelecionados.includes(nome)) return;
+      nucleoVolSelecionados.push(nome);
+      renderVolNucleoSelecionados();
+      const inp = document.getElementById('nucleo_busca_vol');
+      if (inp) inp.value = '';
+      const box = document.getElementById('nucleo_busca_resultados');
+      if (box) box.classList.add('hidden');
+    }
+
+    function removerVolNucleo(nome) {
+      nucleoVolSelecionados = nucleoVolSelecionados.filter(n => n !== nome);
+      renderVolNucleoSelecionados();
+    }
+
+    function renderVolNucleoSelecionados() {
+      const el = document.getElementById('nucleo_voluntarios_selecionados');
+      if (!el) return;
+      if (nucleoVolSelecionados.length === 0) {
+        el.innerHTML = '<span class="text-xs text-gray-400">Nenhum voluntário selecionado ainda</span>';
+        return;
+      }
+      el.innerHTML = nucleoVolSelecionados.map(n => `
+        <span class="inline-flex items-center gap-1 bg-evg-blue text-white text-xs px-2 py-1 rounded-full">
+          ${n}
+          <button type="button" onclick="removerVolNucleo('${n.replace(/'/g, "\\'")}')" class="hover:text-red-200 ml-1">×</button>
+        </span>
+      `).join('');
+    }
+
+    document.addEventListener('click', (e) => {
+      const box = document.getElementById('nucleo_busca_resultados');
+      const input = document.getElementById('nucleo_busca_vol');
+      if (!box || !input) return;
+      if (e.target.closest('#nucleo_busca_resultados') || e.target.closest('#nucleo_busca_vol')) return;
+      box.classList.add('hidden');
+    });
 
     document.getElementById('form-nucleos')?.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -2492,6 +2588,7 @@
         local: local || null,
         bairro: bairro || null,
         horario: horario || null,
+        voluntarios: [...nucleoVolSelecionados],
         observacao: obs || null,
         mes: dataSemana.slice(0, 7),
         registrado_por: usuarioLogado?.nome || null
@@ -2589,6 +2686,7 @@
                 ${r.bairro ? `<div><strong>Bairro:</strong> ${r.bairro}</div>` : ''}
                 ${r.horario ? `<div><strong>Horário:</strong> ${r.horario}</div>` : ''}
               </div>
+              ${(r.voluntarios && r.voluntarios.length) ? `<div class="text-sm text-gray-600 mt-1"><strong>Voluntários que ajudaram:</strong> ${r.voluntarios.join(', ')}</div>` : ''}
               ${r.observacao ? `<div class="text-sm text-gray-500 mt-1"><strong>Comentários:</strong> ${r.observacao}</div>` : ''}
               <div class="text-xs text-gray-400 mt-1">${mesLabel(r.mes || '')}${r.registrado_por ? ' • por ' + r.registrado_por : ''}</div>
             </div>
