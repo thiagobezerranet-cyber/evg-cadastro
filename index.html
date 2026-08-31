@@ -918,17 +918,23 @@
             </div>
             <div>
               <label class="block text-sm font-medium mb-1">Grupo *</label>
-              <select id="nucleo-grupo" required class="w-full px-3 py-2 border rounded-lg text-sm">
-                <option value="">Selecione</option>
-                <option value="EVG">EVG</option>
-                <option value="Grupo Jovem">Grupo Jovem</option>
-                <option value="Grupo da Saúde">Grupo da Saúde</option>
-                <option value="Outro">Outro</option>
-              </select>
+              <input type="text" id="nucleo-grupo" required list="nucleos-grupos-list"
+                     class="w-full px-3 py-2 border rounded-lg text-sm"
+                     placeholder="Ex: EVG, Grupo Jovem, Grupo Prevídeo...">
+              <p class="text-xs text-gray-500 mt-1">Pode escolher da lista ou digitar um grupo novo.</p>
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Nome da pessoa / responsável do núcleo *</label>
-              <input type="text" id="nucleo-nome" required list="nucleos-nomes-list" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Nome completo">
+              <input type="text" id="nucleo-nome" required list="nucleos-nomes-list" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Nome completo (cadastrado ou não)">
+              <p class="text-xs text-gray-500 mt-1">Sugere nomes da EVG, mas você pode escrever qualquer nome.</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Qtd. de pessoas no núcleo</label>
+              <input type="number" id="nucleo-qtd-pessoas" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 8">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Quantas vieram à igreja</label>
+              <input type="number" id="nucleo-vieram-igreja" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 3">
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Observação</label>
@@ -2419,7 +2425,7 @@
       if (dataEl && !dataEl.value) {
         dataEl.value = new Date().toISOString().slice(0, 10);
       }
-      // datalist com nomes cadastrados (opcional)
+      // Sugestões de nomes (cadastrados) — ainda permite digitar qualquer um
       let list = document.getElementById('nucleos-nomes-list');
       if (!list) {
         list = document.createElement('datalist');
@@ -2431,6 +2437,19 @@
         .map(v => v.nome)
         .sort((a, b) => a.localeCompare(b));
       list.innerHTML = nomes.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
+
+      // Sugestões de grupos (fixos + já usados no histórico)
+      let listG = document.getElementById('nucleos-grupos-list');
+      if (!listG) {
+        listG = document.createElement('datalist');
+        listG.id = 'nucleos-grupos-list';
+        document.body.appendChild(listG);
+      }
+      const fixos = ['EVG', 'Grupo Jovem', 'Grupo da Saúde', 'Grupo Prevídeo'];
+      const usados = nucleosRegistros.map(r => r.grupo).filter(Boolean);
+      const grupos = [...new Set([...fixos, ...usados])].sort((a, b) => a.localeCompare(b));
+      listG.innerHTML = grupos.map(g => `<option value="${g.replace(/"/g, '&quot;')}"></option>`).join('');
+
       const ok = document.getElementById('nucleos-sucesso');
       if (ok) ok.classList.add('hidden');
     }
@@ -2438,9 +2457,11 @@
     document.getElementById('form-nucleos')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const dataSemana = document.getElementById('nucleo-data').value;
-      const grupo = document.getElementById('nucleo-grupo').value;
+      const grupo = (document.getElementById('nucleo-grupo').value || '').trim();
       const nome = (document.getElementById('nucleo-nome').value || '').trim();
       const obs = (document.getElementById('nucleo-obs').value || '').trim();
+      const qtdPessoas = document.getElementById('nucleo-qtd-pessoas').value;
+      const vieramIgreja = document.getElementById('nucleo-vieram-igreja').value;
 
       if (!dataSemana || !grupo || !nome) {
         alert('Preencha data, grupo e nome.');
@@ -2451,6 +2472,8 @@
         data_semana: dataSemana,
         grupo: grupo,
         nome: nome,
+        qtd_pessoas: qtdPessoas === '' ? null : parseInt(qtdPessoas, 10),
+        vieram_igreja: vieramIgreja === '' ? null : parseInt(vieramIgreja, 10),
         observacao: obs || null,
         mes: dataSemana.slice(0, 7),
         registrado_por: usuarioLogado?.nome || null
@@ -2498,9 +2521,13 @@
 
       // Totais por grupo no período filtrado
       const porGrupo = {};
+      let somaPessoas = 0;
+      let somaVieram = 0;
       lista.forEach(r => {
         const g = r.grupo || 'Outro';
         porGrupo[g] = (porGrupo[g] || 0) + 1;
+        if (r.qtd_pessoas != null) somaPessoas += Number(r.qtd_pessoas) || 0;
+        if (r.vieram_igreja != null) somaVieram += Number(r.vieram_igreja) || 0;
       });
       const totalGeral = lista.length;
 
@@ -2512,7 +2539,9 @@
         resumo.innerHTML = `
           <div class="mb-2">
             <span class="font-medium text-evg-blue">${filtroMes ? mesLabel(filtroMes) : 'Todos os períodos'}:</span>
-            <strong>${totalGeral}</strong> núcleo(s) no total
+            <strong>${totalGeral}</strong> núcleo(s) •
+            <strong>${somaPessoas}</strong> pessoas nos núcleos •
+            <strong>${somaVieram}</strong> vieram à igreja
           </div>
           <div>${chips || '<span class="text-gray-400">Sem dados</span>'}</div>
         `;
@@ -2532,8 +2561,12 @@
               <div class="text-sm text-gray-600">
                 <span class="inline-block bg-gray-100 px-2 py-0.5 rounded text-xs mr-2">${r.grupo || '—'}</span>
                 ${dataFmt}
-                ${r.observacao ? ' • ' + r.observacao : ''}
               </div>
+              <div class="flex flex-wrap gap-2 mt-2 text-sm">
+                ${r.qtd_pessoas != null ? `<span class="bg-blue-50 text-evg-blue px-2 py-0.5 rounded-full">Pessoas no núcleo: <strong>${r.qtd_pessoas}</strong></span>` : ''}
+                ${r.vieram_igreja != null ? `<span class="bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Vieram à igreja: <strong>${r.vieram_igreja}</strong></span>` : ''}
+              </div>
+              ${r.observacao ? `<div class="text-sm text-gray-500 mt-1">${r.observacao}</div>` : ''}
               <div class="text-xs text-gray-400 mt-1">${mesLabel(r.mes || '')}${r.registrado_por ? ' • por ' + r.registrado_por : ''}</div>
             </div>
             <button type="button" onclick="excluirNucleo('${r.id}')" class="text-red-600 text-sm hover:underline h-fit">Excluir</button>
