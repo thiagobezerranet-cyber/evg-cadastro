@@ -643,6 +643,57 @@
               <label class="block text-sm font-medium mb-1">5. Como você está realmente? (pode falar com liberdade)</label>
               <textarea id="perg5" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Resposta..."></textarea>
             </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">6. Encontro com Deus?</label>
+              <select id="perg6" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim</option>
+                <option>Não</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">7. Você recebeu o Espírito Santo?</label>
+              <select id="perg7" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim</option>
+                <option>Não</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">8. Tem o desejo de ganhar almas?</label>
+              <select id="perg8" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim</option>
+                <option>Não</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">9. Leu a Bíblia todos os dias?</label>
+              <select id="perg9" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim</option>
+                <option>Não</option>
+                <option>Às vezes</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">10. Ouve o bispo Macedo?</label>
+              <select id="perg10" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim, regularmente</option>
+                <option>Sim, de vez em quando</option>
+                <option>Não</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">11. Algum obreiro te acompanha?</label>
+              <select id="perg11" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim</option>
+                <option>Não</option>
+              </select>
+              <input type="text" id="perg11_obreiro" class="w-full max-w-md mt-2 px-3 py-2 border rounded-lg text-sm" placeholder="Se sim, nome do obreiro (opcional)">
+            </div>
 
             <div class="pt-2">
               <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
@@ -1861,6 +1912,12 @@
           <p><strong>Propósito:</strong> ${a.perg3 || '—'}</p>
           <p><strong>Dias:</strong> ${(a.dias || []).join(', ') || '—'}</p>
           <p><strong>Como está:</strong> ${a.perg5 || '—'}</p>
+          <p><strong>Encontro com Deus:</strong> ${a.perg6 || '—'}</p>
+          <p><strong>Recebeu o Espírito Santo:</strong> ${a.perg7 || '—'}</p>
+          <p><strong>Desejo de ganhar almas:</strong> ${a.perg8 || '—'}</p>
+          <p><strong>Leu a Bíblia todos os dias:</strong> ${a.perg9 || '—'}</p>
+          <p><strong>Ouve o bispo Macedo:</strong> ${a.perg10 || '—'}</p>
+          <p><strong>Obreiro acompanha:</strong> ${a.perg11 || '—'}${a.perg11_obreiro ? ' — ' + a.perg11_obreiro : ''}</p>
         </div>
       `).join('');
     }
@@ -1886,6 +1943,13 @@
         perg3: document.getElementById('perg3').value,
         dias: dias,
         perg5: document.getElementById('perg5').value,
+        perg6: document.getElementById('perg6').value,
+        perg7: document.getElementById('perg7').value,
+        perg8: document.getElementById('perg8').value,
+        perg9: document.getElementById('perg9').value,
+        perg10: document.getElementById('perg10').value,
+        perg11: document.getElementById('perg11').value,
+        perg11_obreiro: (document.getElementById('perg11_obreiro').value || '').trim() || null,
         registrado_por: usuarioLogado.nome
       };
 
