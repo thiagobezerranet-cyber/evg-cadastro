@@ -584,14 +584,26 @@
 
           <form id="form-atendimento" class="bg-white rounded-xl shadow p-6 space-y-6">
             <input type="hidden" id="atend-voluntario-id">
-            
+
             <div>
-              <label class="block text-sm font-medium mb-1">1. Como está a sua espiritualidade?</label>
-              <textarea id="perg1" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Resposta..."></textarea>
+              <label class="block text-sm font-medium mb-1">1. Você teve encontro com Deus?</label>
+              <select id="perg1" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim</option>
+                <option>Não</option>
+              </select>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">2. Você tem feito jejum?</label>
+              <label class="block text-sm font-medium mb-1">2. Você recebeu o Espírito Santo?</label>
               <select id="perg2" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim</option>
+                <option>Não</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">3. Você tem jejuado?</label>
+              <select id="perg3" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
                 <option value="">Selecione</option>
                 <option>Sim, regularmente</option>
                 <option>Sim, de vez em quando</option>
@@ -599,15 +611,41 @@
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">3. Você tem feito propósito?</label>
-              <select id="perg3" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+              <label class="block text-sm font-medium mb-1">4. Você tem feito propósito?</label>
+              <select id="perg4" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
                 <option value="">Selecione</option>
                 <option>Sim</option>
                 <option>Não</option>
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-2">4. Quais dias da reunião você tem vindo? (marque e coloque o horário)</label>
+              <label class="block text-sm font-medium mb-1">5. Você lê a Bíblia todos os dias?</label>
+              <select id="perg5" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim</option>
+                <option>Não</option>
+                <option>Às vezes</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">6. Você ouve o bispo Macedo?</label>
+              <select id="perg6" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim, regularmente</option>
+                <option>Sim, de vez em quando</option>
+                <option>Não</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">7. Você tem desejo de ganhar almas?</label>
+              <select id="perg7" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+                <option>Sim</option>
+                <option>Não</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2">8. Quais dias da semana você tem vindo? (marque e coloque o horário)</label>
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div class="flex items-center gap-2">
                   <input type="checkbox" id="dia_seg" class="rounded"> <span class="text-sm w-16">Segunda</span>
@@ -640,59 +678,29 @@
               </div>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">5. Como você está realmente? (pode falar com liberdade)</label>
-              <textarea id="perg5" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Resposta..."></textarea>
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">6. Encontro com Deus?</label>
-              <select id="perg6" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
-                <option value="">Selecione</option>
-                <option>Sim</option>
-                <option>Não</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">7. Você recebeu o Espírito Santo?</label>
-              <select id="perg7" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
-                <option value="">Selecione</option>
-                <option>Sim</option>
-                <option>Não</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">8. Tem o desejo de ganhar almas?</label>
+              <label class="block text-sm font-medium mb-1">9. Algum obreiro te acompanha?</label>
               <select id="perg8" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
                 <option value="">Selecione</option>
                 <option>Sim</option>
                 <option>Não</option>
               </select>
+              <input type="text" id="perg_obreiro" class="w-full max-w-md mt-2 px-3 py-2 border rounded-lg text-sm" placeholder="Se sim, nome do obreiro (opcional)">
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">9. Leu a Bíblia todos os dias?</label>
-              <select id="perg9" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
-                <option value="">Selecione</option>
-                <option>Sim</option>
-                <option>Não</option>
-                <option>Às vezes</option>
-              </select>
+              <label class="block text-sm font-medium mb-1">10. Como está sua comunhão com Deus?</label>
+              <textarea id="perg9" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Resposta..."></textarea>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">10. Ouve o bispo Macedo?</label>
-              <select id="perg10" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
-                <option value="">Selecione</option>
-                <option>Sim, regularmente</option>
-                <option>Sim, de vez em quando</option>
-                <option>Não</option>
-              </select>
+              <label class="block text-sm font-medium mb-1">11. O que é comunhão com Deus?</label>
+              <textarea id="perg10" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Resposta..."></textarea>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">11. Algum obreiro te acompanha?</label>
-              <select id="perg11" class="w-full max-w-xs px-3 py-2 border rounded-lg text-sm">
-                <option value="">Selecione</option>
-                <option>Sim</option>
-                <option>Não</option>
-              </select>
-              <input type="text" id="perg11_obreiro" class="w-full max-w-md mt-2 px-3 py-2 border rounded-lg text-sm" placeholder="Se sim, nome do obreiro (opcional)">
+              <label class="block text-sm font-medium mb-1">12. Como está seu casamento ou família?</label>
+              <textarea id="perg11" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Resposta..."></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">13. Como está você realmente? (pode falar com liberdade)</label>
+              <textarea id="perg12" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Resposta..."></textarea>
             </div>
 
             <div class="pt-2">
@@ -1904,22 +1912,27 @@
         return;
       }
 
-      container.innerHTML = lista.map(a => `
-        <div class="bg-gray-50 rounded-lg p-4 text-sm border">
+      container.innerHTML = lista.map(a => {
+        const obreiroNome = a.perg_obreiro || a.perg11_obreiro || '';
+        return `
+        <div class="bg-gray-50 rounded-lg p-4 text-sm border space-y-1">
           <div class="font-medium text-evg-blue mb-2">${new Date(a.data).toLocaleString('pt-BR')}</div>
-          <p><strong>Espiritualidade:</strong> ${a.perg1 || '—'}</p>
-          <p><strong>Jejum:</strong> ${a.perg2 || '—'}</p>
-          <p><strong>Propósito:</strong> ${a.perg3 || '—'}</p>
-          <p><strong>Dias:</strong> ${(a.dias || []).join(', ') || '—'}</p>
-          <p><strong>Como está:</strong> ${a.perg5 || '—'}</p>
-          <p><strong>Encontro com Deus:</strong> ${a.perg6 || '—'}</p>
-          <p><strong>Recebeu o Espírito Santo:</strong> ${a.perg7 || '—'}</p>
-          <p><strong>Desejo de ganhar almas:</strong> ${a.perg8 || '—'}</p>
-          <p><strong>Leu a Bíblia todos os dias:</strong> ${a.perg9 || '—'}</p>
-          <p><strong>Ouve o bispo Macedo:</strong> ${a.perg10 || '—'}</p>
-          <p><strong>Obreiro acompanha:</strong> ${a.perg11 || '—'}${a.perg11_obreiro ? ' — ' + a.perg11_obreiro : ''}</p>
+          <p><strong>1. Encontro com Deus:</strong> ${a.perg1 || '—'}</p>
+          <p><strong>2. Espírito Santo:</strong> ${a.perg2 || '—'}</p>
+          <p><strong>3. Jejum:</strong> ${a.perg3 || '—'}</p>
+          <p><strong>4. Propósito:</strong> ${a.perg4 || '—'}</p>
+          <p><strong>5. Bíblia todos os dias:</strong> ${a.perg5 || '—'}</p>
+          <p><strong>6. Ouve o bispo Macedo:</strong> ${a.perg6 || '—'}</p>
+          <p><strong>7. Desejo de ganhar almas:</strong> ${a.perg7 || '—'}</p>
+          <p><strong>8. Dias:</strong> ${(a.dias || []).join(', ') || '—'}</p>
+          <p><strong>9. Obreiro acompanha:</strong> ${a.perg8 || '—'}${obreiroNome ? ' — ' + obreiroNome : ''}</p>
+          <p><strong>10. Comunhão com Deus:</strong> ${a.perg9 || '—'}</p>
+          <p><strong>11. O que é comunhão:</strong> ${a.perg10 || '—'}</p>
+          <p><strong>12. Casamento / família:</strong> ${a.perg11 || '—'}</p>
+          <p><strong>13. Como está realmente:</strong> ${a.perg12 || '—'}</p>
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
 
     document.getElementById('form-atendimento').addEventListener('submit', async (e) => {
@@ -1941,15 +1954,17 @@
         perg1: document.getElementById('perg1').value,
         perg2: document.getElementById('perg2').value,
         perg3: document.getElementById('perg3').value,
-        dias: dias,
+        perg4: document.getElementById('perg4').value,
         perg5: document.getElementById('perg5').value,
         perg6: document.getElementById('perg6').value,
         perg7: document.getElementById('perg7').value,
+        dias: dias,
         perg8: document.getElementById('perg8').value,
+        perg_obreiro: (document.getElementById('perg_obreiro').value || '').trim() || null,
         perg9: document.getElementById('perg9').value,
         perg10: document.getElementById('perg10').value,
         perg11: document.getElementById('perg11').value,
-        perg11_obreiro: (document.getElementById('perg11_obreiro').value || '').trim() || null,
+        perg12: document.getElementById('perg12').value,
         registrado_por: usuarioLogado.nome
       };
 
