@@ -741,9 +741,14 @@
         </div>
 
         <form id="form-relatorio-grupo" class="bg-white rounded-xl shadow p-6 space-y-8 max-w-3xl">
+          <input type="hidden" id="rel_edit_id" value="">
           <section>
             <h2 class="text-lg font-semibold text-evg-blue border-b pb-2 mb-4">1. Identificação</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Data do evento / relatório *</label>
+                <input type="date" id="rel_data_evento" required class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
               <div>
                 <label class="block text-sm font-medium mb-1">Nome do coordenador *</label>
                 <input type="text" id="rel_coordenador" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Seu nome">
@@ -1135,8 +1140,8 @@
       }
       relatoriosGrupos = (data || []).map(r => ({
         ...r,
-        data: r.created_at,
-        mes: r.mes || (r.created_at ? (new Date(r.created_at).getFullYear() + '-' + String(new Date(r.created_at).getMonth()+1).padStart(2,'0')) : '')
+        data: r.data_evento || r.created_at,
+        mes: r.mes || (r.data_evento ? String(r.data_evento).slice(0, 7) : (r.created_at ? (new Date(r.created_at).getFullYear() + '-' + String(new Date(r.created_at).getMonth()+1).padStart(2,'0')) : ''))
       }));
     }
 
@@ -1998,13 +2003,20 @@
     }
 
     function preencherFormGrupo() {
+      const form = document.getElementById('form-relatorio-grupo');
+      if (form) form.reset();
+      const editId = document.getElementById('rel_edit_id');
+      if (editId) editId.value = '';
       relVolSelecionados = [];
       renderVolSelecionados();
       const box = document.getElementById('rel_busca_resultados');
       if (box) box.classList.add('hidden');
       const busca = document.getElementById('rel_busca_vol');
       if (busca) busca.value = '';
-      // Limpa e esconde campos extras por grupo
+      const dataEl = document.getElementById('rel_data_evento');
+      if (dataEl) dataEl.value = new Date().toISOString().slice(0, 10);
+      const btn = document.querySelector('#form-relatorio-grupo button[type="submit"]');
+      if (btn) btn.textContent = 'Salvar Relatório';
       atualizarCamposExtrasGrupo();
     }
 
@@ -2119,15 +2131,17 @@
     document.getElementById('form-relatorio-grupo').addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const agora = new Date();
       const num = (id) => {
         const v = document.getElementById(id)?.value;
         if (v === '' || v === undefined || v === null) return null;
         const n = parseInt(v, 10);
         return isNaN(n) ? null : n;
       };
+      const dataEvento = document.getElementById('rel_data_evento')?.value || new Date().toISOString().slice(0, 10);
+      const editId = (document.getElementById('rel_edit_id')?.value || '').trim();
       const rel = {
-        mes: mesKey(agora.toISOString()),
+        data_evento: dataEvento,
+        mes: dataEvento.slice(0, 7),
         coordenador: document.getElementById('rel_coordenador').value.trim(),
         auxiliar: document.getElementById('rel_auxiliar').value.trim(),
         grupo: document.getElementById('rel_grupo').value,
@@ -2153,9 +2167,14 @@
         return;
       }
 
-      const { error } = await supabaseClient.from('relatorios_grupos').insert([rel]);
+      let error;
+      if (editId) {
+        ({ error } = await supabaseClient.from('relatorios_grupos').update(rel).eq('id', editId));
+      } else {
+        ({ error } = await supabaseClient.from('relatorios_grupos').insert([rel]));
+      }
       if (error) {
-        alert('Erro ao salvar relatório: ' + error.message);
+        alert('Erro ao salvar relatório: ' + error.message + (error.message.includes('data_evento') ? '\n\nRode o SQL da coluna data_evento no Supabase.' : ''));
         return;
       }
 
@@ -2163,18 +2182,24 @@
       document.getElementById('form-relatorio-grupo').reset();
       preencherFormGrupo();
 
-      // Mensagem clara na tela (não só alert)
       const okBox = document.getElementById('relatorio-sucesso');
       if (okBox) {
         okBox.classList.remove('hidden');
+        okBox.querySelector('p.font-semibold').textContent = editId
+          ? 'Relatório atualizado com sucesso!'
+          : 'Relatório enviado com sucesso!';
         okBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-      try { alert('Relatório enviado com sucesso! As informações foram salvas.'); } catch (e) {}
+      try { alert(editId ? 'Relatório atualizado!' : 'Relatório enviado com sucesso! As informações foram salvas.'); } catch (err) {}
 
-      // Esconde a mensagem após 12 segundos (formulário continua disponível)
       setTimeout(() => {
         if (okBox) okBox.classList.add('hidden');
       }, 12000);
+
+      // Se era edição e é gestão, volta para a lista
+      if (editId && usuarioLogado?.tipo === 'gestao') {
+        showPage('relatorios-grupos');
+      }
     });
 
     function atualizarFiltroMes() {
@@ -2206,15 +2231,21 @@
         return;
       }
 
-      container.innerHTML = lista.map(r => `
+      container.innerHTML = lista.map(r => {
+        const dataEv = r.data_evento || (r.created_at ? String(r.created_at).slice(0, 10) : '');
+        const dataFmt = dataEv ? dataEv.split('-').reverse().join('/') : '—';
+        return `
         <div class="bg-white rounded-xl shadow p-5 border-l-4 border-evg-red">
           <div class="flex flex-wrap justify-between gap-2 mb-3">
             <div>
               <div class="font-semibold text-evg-blue text-lg">${r.grupo || '—'}</div>
               <div class="text-sm text-gray-600">Coordenador: <strong>${r.coordenador || '—'}</strong>${r.auxiliar ? ' • Auxiliar: ' + r.auxiliar : ''}</div>
-              <div class="text-xs text-gray-400 mt-1">${mesLabel(r.mes || mesKey(r.data))} • ${new Date(r.data).toLocaleString('pt-BR')}</div>
+              <div class="text-xs text-gray-400 mt-1">Data do evento: <strong>${dataFmt}</strong> • ${mesLabel(r.mes || mesKey(r.data))}${r.created_at ? ' • enviado ' + new Date(r.created_at).toLocaleString('pt-BR') : ''}</div>
             </div>
             <div class="flex flex-wrap gap-2 h-fit">
+              <button onclick="editarRelatorio('${r.id}')" class="bg-evg-blue hover:bg-evg-dark text-white text-sm px-3 py-1.5 rounded-lg">
+                Editar
+              </button>
               <button onclick="downloadRelatorio('${r.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">
                 Download
               </button>
@@ -2252,7 +2283,43 @@
             </div>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
+    }
+
+    function editarRelatorio(id) {
+      const r = relatoriosGrupos.find(x => x.id === id);
+      if (!r) {
+        alert('Relatório não encontrado.');
+        return;
+      }
+      showPage('form-grupo');
+      document.getElementById('rel_edit_id').value = r.id;
+      document.getElementById('rel_data_evento').value = r.data_evento || (r.created_at ? String(r.created_at).slice(0, 10) : new Date().toISOString().slice(0, 10));
+      document.getElementById('rel_coordenador').value = r.coordenador || '';
+      document.getElementById('rel_auxiliar').value = r.auxiliar || '';
+      document.getElementById('rel_grupo').value = r.grupo || '';
+      document.getElementById('rel_alcancadas').value = r.alcancadas ?? '';
+      document.getElementById('rel_qtd_voluntarios').value = r.qtd_voluntarios ?? '';
+      const setNum = (id, v) => { const el = document.getElementById(id); if (el) el.value = v != null ? v : ''; };
+      setNum('rel_almas_igreja', r.almas_igreja);
+      setNum('rel_visitas', r.visitas);
+      setNum('rel_cestas_basicas', r.cestas_basicas);
+      setNum('rel_brindes_brinquedos', r.brindes_brinquedos);
+      setNum('rel_biblias', r.biblias);
+      setNum('rel_kits_higiene', r.kits_higiene);
+      setNum('rel_marmitas', r.marmitas);
+      setNum('rel_cobertores', r.cobertores);
+      setNum('rel_agasalhos', r.agasalhos);
+      document.getElementById('rel_melhorar').value = r.melhorar || '';
+      document.getElementById('rel_ideias').value = r.ideias || '';
+      document.getElementById('rel_precisam').value = r.precisam || '';
+      relVolSelecionados = Array.isArray(r.voluntarios) ? [...r.voluntarios] : [];
+      renderVolSelecionados();
+      atualizarCamposExtrasGrupo();
+      const btn = document.querySelector('#form-relatorio-grupo button[type="submit"]');
+      if (btn) btn.textContent = 'Atualizar Relatório';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     async function excluirRelatorio(id) {
@@ -2284,6 +2351,7 @@
           p{margin:6px 0;font-size:14px}
         </style></head><body>
           <h1>Acompanhamento dos Grupos da EVG</h1>
+          <p><strong>Data do evento:</strong> ${r.data_evento ? r.data_evento.split('-').reverse().join('/') : '—'}</p>
           <p><strong>Mês:</strong> ${mesLabel(r.mes || mesKey(r.data))}</p>
           <p><strong>Grupo:</strong> ${r.grupo || ''}</p>
           <p><strong>Coordenador:</strong> ${r.coordenador || ''}</p>
