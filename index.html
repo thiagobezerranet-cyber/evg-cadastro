@@ -1063,11 +1063,19 @@
     const SUPABASE_KEY = 'sb_publishable_HVhB1YSbOR_NbdLdeXpsEw_pNHLnnDm';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Link público só do relatório: ?relatorio=1  (sem login)
+    // Links públicos (sem login):
+    //   ?relatorio=1  → só formulário de relatório de grupos
+    //   ?nucleos=1    → só formulário de núcleos
     const MODO_PUBLICO_RELATORIO = (() => {
       try {
         const q = new URLSearchParams(window.location.search);
         return q.get('relatorio') === '1' || q.get('publico') === '1';
+      } catch (e) { return false; }
+    })();
+    const MODO_PUBLICO_NUCLEOS = (() => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        return q.get('nucleos') === '1' || q.get('nucleo') === '1';
       } catch (e) { return false; }
     })();
 
@@ -1255,16 +1263,11 @@
       }
     }
 
-    async function iniciarModoPublicoRelatorio() {
-      usuarioLogado = { nome: 'Coordenador', tipo: 'coordenador', role: 'Link público', publico: true };
+    function esconderChromePublico() {
       document.getElementById('login-screen').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
-      // Esconde menu lateral e barra mobile — só o formulário
       const sidebar = document.getElementById('sidebar');
       if (sidebar) sidebar.classList.add('hidden');
-      const topMobile = document.querySelector('main > .md\\:hidden');
-      // barra topo
-      const barras = document.querySelectorAll('main > div.md\\:hidden, main > .md\\:hidden');
       document.querySelectorAll('main > div').forEach(el => {
         if (el.className && el.className.includes('md:hidden') && el.className.includes('sticky')) {
           el.classList.add('hidden');
@@ -1275,7 +1278,11 @@
         main.classList.remove('md:ml-64');
         main.classList.add('ml-0');
       }
-      // tenta carregar nomes (se a policy permitir); se não, ainda pode digitar
+    }
+
+    async function iniciarModoPublicoRelatorio() {
+      usuarioLogado = { nome: 'Coordenador', tipo: 'coordenador', role: 'Link público', publico: true };
+      esconderChromePublico();
       try { await carregarVoluntarios(); } catch (e) {}
       preencherProjetos();
       preencherFormGrupo();
@@ -1286,9 +1293,32 @@
       if (sub) sub.textContent = 'Preencha e envie. Não é necessário fazer login.';
     }
 
+    async function iniciarModoPublicoNucleos() {
+      usuarioLogado = { nome: 'Responsável do núcleo', tipo: 'coordenador', role: 'Link público núcleos', publico: true };
+      esconderChromePublico();
+      try { await carregarVoluntarios(); } catch (e) {}
+      initFormNucleos();
+      showPage('nucleos');
+      // Esconde histórico (só gestão vê a lista)
+      const histTitle = document.querySelector('#page-nucleos h2');
+      if (histTitle) histTitle.classList.add('hidden');
+      const histFiltro = document.getElementById('filtro-mes-nucleos');
+      if (histFiltro && histFiltro.parentElement) histFiltro.parentElement.classList.add('hidden');
+      const resumo = document.getElementById('nucleos-resumo-mes');
+      if (resumo) resumo.classList.add('hidden');
+      const lista = document.getElementById('lista-nucleos');
+      if (lista) lista.classList.add('hidden');
+      const titulo = document.querySelector('#page-nucleos h1');
+      if (titulo) titulo.textContent = 'Relatório de Núcleos — EVG';
+      const sub = document.querySelector('#page-nucleos > p.text-sm');
+      if (sub) sub.textContent = 'Preencha os dados do núcleo e envie. Não é necessário fazer login.';
+    }
+
     // Sessão existente OU modo público
     if (MODO_PUBLICO_RELATORIO) {
       iniciarModoPublicoRelatorio();
+    } else if (MODO_PUBLICO_NUCLEOS) {
+      iniciarModoPublicoNucleos();
     } else {
       supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
         if (!session) return;
