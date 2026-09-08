@@ -975,6 +975,7 @@
         </div>
 
         <form id="form-nucleos" class="bg-white rounded-xl shadow p-6 space-y-5 max-w-3xl mb-8">
+          <input type="hidden" id="nucleo_edit_id" value="">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium mb-1">Data (semana) *</label>
@@ -1014,11 +1015,11 @@
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Voluntários que ajudaram</label>
-              <p class="text-xs text-gray-500 mb-2">Digite para buscar (cadastrado) ou use o nome digitado. Pode adicionar vários.</p>
+              <p class="text-xs text-gray-500 mb-2">Só <strong>nomes</strong> (não coloque número). Busque ou digite o nome e toque para adicionar. Pode vários.</p>
               <div class="relative">
                 <input type="text" id="nucleo_busca_vol"
                        class="w-full px-3 py-2 border rounded-lg text-sm"
-                       placeholder="Buscar ou digitar nome do voluntário..."
+                       placeholder="Digite o NOME do voluntário (não use número)..."
                        autocomplete="off"
                        oninput="filtrarVolNucleo()"
                        onkeyup="filtrarVolNucleo()"
@@ -1034,7 +1035,7 @@
             </div>
           </div>
           <div class="pt-2">
-            <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
+            <button type="submit" id="nucleo-btn-salvar" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
               Salvar núcleo
             </button>
           </div>
@@ -2627,11 +2628,14 @@
 
     // ===================== NÚCLEOS =====================
     function initFormNucleos() {
+      const editId = document.getElementById('nucleo_edit_id');
+      if (editId) editId.value = '';
+      const form = document.getElementById('form-nucleos');
+      // não dá reset total aqui se ainda vamos preencher; limpa vols e data padrão
       const dataEl = document.getElementById('nucleo-data');
       if (dataEl && !dataEl.value) {
         dataEl.value = new Date().toISOString().slice(0, 10);
       }
-      // Sugestões de nomes (cadastrados) — ainda permite digitar qualquer um
       let list = document.getElementById('nucleos-nomes-list');
       if (!list) {
         list = document.createElement('datalist');
@@ -2644,7 +2648,6 @@
         .sort((a, b) => a.localeCompare(b));
       list.innerHTML = nomes.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
 
-      // Sugestões de grupos (fixos + já usados no histórico)
       let listG = document.getElementById('nucleos-grupos-list');
       if (!listG) {
         listG = document.createElement('datalist');
@@ -2663,8 +2666,20 @@
       const busca = document.getElementById('nucleo_busca_vol');
       if (busca) busca.value = '';
 
+      const btn = document.getElementById('nucleo-btn-salvar');
+      if (btn) btn.textContent = 'Salvar núcleo';
       const ok = document.getElementById('nucleos-sucesso');
       if (ok) ok.classList.add('hidden');
+    }
+
+    function nomeVoluntarioValido(nome) {
+      const n = (nome || '').trim();
+      if (!n) return false;
+      // rejeita só número (ex: "5", "12")
+      if (/^\d+$/.test(n)) return false;
+      // precisa ter pelo menos uma letra
+      if (!/[a-zA-ZÀ-ÿ]/.test(n)) return false;
+      return true;
     }
 
     function filtrarVolNucleo() {
@@ -2679,9 +2694,13 @@
 
       if (lista.length === 0) {
         if (termo) {
-          const safe = termo.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-          box.innerHTML = `<button type="button" onmousedown="event.preventDefault(); adicionarVolNucleo('${safe}')" ontouchend="event.preventDefault(); adicionarVolNucleo('${safe}')"
-            class="w-full text-left px-3 py-3 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
+          if (!nomeVoluntarioValido(termo)) {
+            box.innerHTML = '<p class="px-3 py-2 text-sm text-red-600">Use o <strong>nome</strong> da pessoa (não coloque só número).</p>';
+          } else {
+            const safe = termo.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            box.innerHTML = `<button type="button" onmousedown="event.preventDefault(); adicionarVolNucleo('${safe}')" ontouchend="event.preventDefault(); adicionarVolNucleo('${safe}')"
+              class="w-full text-left px-3 py-3 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
+          }
         } else {
           box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Digite o nome do voluntário</p>';
         }
@@ -2702,8 +2721,12 @@
     }
 
     function adicionarVolNucleo(nome) {
-      if (!nome || nucleoVolSelecionados.includes(nome)) return;
-      nucleoVolSelecionados.push(nome);
+      if (!nomeVoluntarioValido(nome)) {
+        alert('Coloque o nome da pessoa, não um número.');
+        return;
+      }
+      if (nucleoVolSelecionados.includes(nome)) return;
+      nucleoVolSelecionados.push(nome.trim());
       renderVolNucleoSelecionados();
       const inp = document.getElementById('nucleo_busca_vol');
       if (inp) inp.value = '';
@@ -2750,9 +2773,17 @@
       const local = (document.getElementById('nucleo-local')?.value || '').trim();
       const bairro = (document.getElementById('nucleo-bairro')?.value || '').trim();
       const horario = (document.getElementById('nucleo-horario')?.value || '').trim();
+      const editId = (document.getElementById('nucleo_edit_id')?.value || '').trim();
 
       if (!dataSemana || !grupo || !nome) {
         alert('Preencha data, grupo e nome.');
+        return;
+      }
+
+      // Só nomes válidos na lista de voluntários
+      const vols = nucleoVolSelecionados.filter(nomeVoluntarioValido);
+      if (nucleoVolSelecionados.length && vols.length !== nucleoVolSelecionados.length) {
+        alert('Remova itens que não são nomes (números não são permitidos em voluntários).');
         return;
       }
 
@@ -2765,13 +2796,18 @@
         local: local || null,
         bairro: bairro || null,
         horario: horario || null,
-        voluntarios: [...nucleoVolSelecionados],
+        voluntarios: vols,
         observacao: obs || null,
         mes: dataSemana.slice(0, 7),
         registrado_por: usuarioLogado?.nome || null
       };
 
-      const { error } = await supabaseClient.from('nucleos').insert([registro]);
+      let error;
+      if (editId) {
+        ({ error } = await supabaseClient.from('nucleos').update(registro).eq('id', editId));
+      } else {
+        ({ error } = await supabaseClient.from('nucleos').insert([registro]));
+      }
       if (error) {
         alert('Erro ao salvar: ' + error.message + '\n\nSe a tabela ainda não existe, rode o SQL dos núcleos no Supabase.');
         return;
@@ -2785,10 +2821,12 @@
       const okBox = document.getElementById('nucleos-sucesso');
       if (okBox) {
         okBox.classList.remove('hidden');
+        const p = okBox.querySelector('p');
+        if (p) p.textContent = editId ? '✅ Núcleo atualizado com sucesso!' : '✅ Núcleo registrado com sucesso!';
         okBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(() => okBox.classList.add('hidden'), 10000);
       }
-      try { alert('Núcleo registrado!'); } catch (err) {}
+      try { alert(editId ? 'Núcleo atualizado!' : 'Núcleo registrado!'); } catch (err) {}
     });
 
     function renderNucleosHistorico() {
@@ -2867,10 +2905,38 @@
               ${r.observacao ? `<div class="text-sm text-gray-500 mt-1"><strong>Comentários:</strong> ${r.observacao}</div>` : ''}
               <div class="text-xs text-gray-400 mt-1">${mesLabel(r.mes || '')}${r.registrado_por ? ' • por ' + r.registrado_por : ''}</div>
             </div>
-            <button type="button" onclick="excluirNucleo('${r.id}')" class="text-red-600 text-sm hover:underline h-fit">Excluir</button>
+            <div class="flex flex-col gap-2 h-fit">
+              <button type="button" onclick="editarNucleo('${r.id}')" class="text-evg-blue text-sm hover:underline">Editar</button>
+              <button type="button" onclick="excluirNucleo('${r.id}')" class="text-red-600 text-sm hover:underline">Excluir</button>
+            </div>
           </div>
         `;
       }).join('');
+    }
+
+    function editarNucleo(id) {
+      const r = nucleosRegistros.find(x => x.id === id);
+      if (!r) {
+        alert('Registro não encontrado.');
+        return;
+      }
+      document.getElementById('nucleo_edit_id').value = r.id;
+      document.getElementById('nucleo-data').value = r.data_semana || '';
+      document.getElementById('nucleo-grupo').value = r.grupo || '';
+      document.getElementById('nucleo-nome').value = r.nome || '';
+      document.getElementById('nucleo-qtd-pessoas').value = r.qtd_pessoas != null ? r.qtd_pessoas : '';
+      document.getElementById('nucleo-vieram-igreja').value = r.vieram_igreja != null ? r.vieram_igreja : '';
+      document.getElementById('nucleo-local').value = r.local || '';
+      document.getElementById('nucleo-bairro').value = r.bairro || '';
+      document.getElementById('nucleo-horario').value = r.horario || '';
+      document.getElementById('nucleo-obs').value = r.observacao || '';
+      nucleoVolSelecionados = Array.isArray(r.voluntarios)
+        ? r.voluntarios.filter(nomeVoluntarioValido)
+        : [];
+      renderVolNucleoSelecionados();
+      const btn = document.getElementById('nucleo-btn-salvar');
+      if (btn) btn.textContent = 'Atualizar núcleo';
+      document.getElementById('form-nucleos').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     async function excluirNucleo(id) {
