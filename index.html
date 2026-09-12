@@ -131,6 +131,14 @@
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>🏠</span> Núcleos
           </button>
+          <button onclick="showPage('unisocial')" data-page="unisocial"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>🧺</span> Unisocial
+          </button>
+          <button onclick="showPage('contagem')" data-page="contagem"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>👥</span> Contagem
+          </button>
         </div>
         <!-- Menu só coordenador -->
         <div id="menu-coordenador" class="hidden">
@@ -161,23 +169,56 @@
       <!-- DASHBOARD -->
       <div id="page-dashboard" class="page hidden">
         <h1 class="text-xl sm:text-2xl font-bold text-evg-blue mb-6">Dashboard</h1>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          <div class="bg-white rounded-xl shadow p-5 border-l-4 border-evg-blue">
-            <div class="text-sm text-gray-500">Total de Voluntários</div>
-            <div class="text-3xl font-bold text-evg-blue mt-1" id="stat-total">0</div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
+          <div class="bg-white rounded-2xl shadow p-4 border-t-4 border-evg-blue">
+            <div class="text-xs text-gray-500">Voluntários</div>
+            <div class="text-2xl font-bold text-evg-blue mt-1" id="stat-total">0</div>
           </div>
-          <div class="bg-white rounded-xl shadow p-5 border-l-4 border-green-500">
-            <div class="text-sm text-gray-500">Ativos</div>
-            <div class="text-3xl font-bold text-green-600 mt-1" id="stat-ativos">0</div>
+          <div class="bg-white rounded-2xl shadow p-4 border-t-4 border-green-500">
+            <div class="text-xs text-gray-500">Ativos</div>
+            <div class="text-2xl font-bold text-green-600 mt-1" id="stat-ativos">0</div>
           </div>
-          <div class="bg-white rounded-xl shadow p-5 border-l-4 border-gray-400">
-            <div class="text-sm text-gray-500">Arquivados</div>
-            <div class="text-3xl font-bold text-gray-600 mt-1" id="stat-arquivados">0</div>
+          <div class="bg-white rounded-2xl shadow p-4 border-t-4 border-gray-400">
+            <div class="text-xs text-gray-500">Arquivados</div>
+            <div class="text-2xl font-bold text-gray-600 mt-1" id="stat-arquivados">0</div>
+          </div>
+          <div class="bg-white rounded-2xl shadow p-4 border-t-4 border-amber-500">
+            <div class="text-xs text-gray-500">Núcleos (mês)</div>
+            <div class="text-2xl font-bold text-amber-600 mt-1" id="stat-nucleos">0</div>
+          </div>
+          <div class="bg-white rounded-2xl shadow p-4 border-t-4 border-purple-500">
+            <div class="text-xs text-gray-500">Unisocial (mês)</div>
+            <div class="text-2xl font-bold text-purple-600 mt-1" id="stat-uni">0</div>
+          </div>
+          <div class="bg-white rounded-2xl shadow p-4 border-t-4 border-evg-red">
+            <div class="text-xs text-gray-500">Contagem hoje</div>
+            <div class="text-2xl font-bold text-evg-red mt-1" id="stat-cont-hoje">0</div>
           </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow p-5">
-          <h2 class="font-semibold text-lg mb-4">Últimos cadastros</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+          <div class="bg-white rounded-2xl shadow p-5 flex flex-col items-center">
+            <h2 class="font-semibold text-evg-blue mb-3 self-start">Voluntários</h2>
+            <canvas id="dash-chart-vol" width="180" height="180"></canvas>
+            <div class="flex gap-4 mt-3 text-xs">
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span> Ativos</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-gray-400 inline-block"></span> Arquivados</span>
+            </div>
+          </div>
+          <div class="bg-white rounded-2xl shadow p-5 flex flex-col items-center">
+            <h2 class="font-semibold text-evg-blue mb-3 self-start">Contagem (7 dias)</h2>
+            <canvas id="dash-chart-cont" width="220" height="140"></canvas>
+            <p class="text-xs text-gray-500 mt-2 self-start">Total por dia (obreiros + membros)</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow p-5">
+            <h2 class="font-semibold text-evg-blue mb-3">Resumo rápido</h2>
+            <div id="dash-resumo-rapido" class="space-y-2 text-sm text-gray-700"></div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow p-5">
+          <h2 class="font-semibold text-lg mb-4 text-evg-blue">Últimos cadastros</h2>
           <div id="ultimos-cadastros" class="space-y-2 text-sm"></div>
         </div>
       </div>
@@ -1059,6 +1100,188 @@
         <div id="lista-nucleos" class="space-y-3"></div>
       </div>
 
+      <!-- UNISOCIAL (cesta básica) -->
+      <div id="page-unisocial" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Unisocial</h1>
+        <p class="text-sm text-gray-500 mb-6">Cadastro de pessoas para cesta básica. Busque antes de cadastrar. Na entrega, veja o histórico e decida.</p>
+
+        <div id="uni-sucesso" class="hidden mb-4 max-w-3xl rounded-xl border border-green-300 bg-green-50 p-4">
+          <p class="font-semibold text-green-800">✅ Salvo com sucesso!</p>
+        </div>
+
+        <!-- Busca -->
+        <div class="bg-white rounded-xl shadow p-4 mb-6 max-w-3xl">
+          <label class="block text-sm font-medium mb-1">Buscar cadastrado (nome)</label>
+          <input type="text" id="uni-busca" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Digite o nome..." oninput="renderUnisocialLista()">
+          <p class="text-xs text-gray-500 mt-1">Se a pessoa já existir, aparece abaixo com as datas em que já retirou.</p>
+        </div>
+
+        <!-- Formulário -->
+        <form id="form-unisocial" class="bg-white rounded-xl shadow p-6 space-y-4 max-w-3xl mb-8">
+          <input type="hidden" id="uni_edit_id" value="">
+          <h2 class="text-lg font-semibold text-evg-blue border-b pb-2">Novo cadastro / edição</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium mb-1">Nome completo *</label>
+              <input type="text" id="uni-nome" required class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Data de nascimento *</label>
+              <input type="date" id="uni-nascimento" required class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Data do evento (cesta) *</label>
+              <input type="date" id="uni-data-evento" required class="w-full px-3 py-2 border rounded-lg text-sm">
+              <p class="text-xs text-gray-500 mt-1">Dia em que a pessoa deve receber / receberá a cesta.</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Profissão</label>
+              <input type="text" id="uni-profissao" class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Celular / WhatsApp</label>
+              <input type="tel" id="uni-celular" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="(13) 99999-9999">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium mb-1">Endereço</label>
+              <input type="text" id="uni-endereco" class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Número</label>
+              <input type="text" id="uni-numero" class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Quantas pessoas na casa</label>
+              <input type="number" id="uni-qtd" min="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: 4">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium mb-1">Foto</label>
+              <div class="flex flex-wrap items-center gap-3">
+                <div id="uni-foto-preview" class="w-20 h-20 rounded-full bg-gray-200 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden shrink-0">
+                  <span class="text-gray-400 text-xs">Foto</span>
+                </div>
+                <button type="button" onclick="document.getElementById('uni-foto-file').click()" class="text-sm bg-gray-100 px-3 py-2 rounded-lg">📁 Escolher</button>
+                <button type="button" onclick="document.getElementById('uni-foto-cam').click()" class="text-sm bg-gray-100 px-3 py-2 rounded-lg">📷 Tirar foto</button>
+                <input type="file" id="uni-foto-file" accept="image/*" class="hidden" onchange="previewFotoUni(event)">
+                <input type="file" id="uni-foto-cam" accept="image/*" capture="environment" class="hidden" onchange="previewFotoUni(event)">
+                <input type="hidden" id="uni-foto-base64">
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2">
+            <button type="submit" id="uni-btn-salvar" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">Salvar cadastro</button>
+            <button type="button" onclick="limparFormUnisocial()" class="text-sm text-gray-600 hover:underline px-3">Limpar formulário</button>
+          </div>
+        </form>
+
+        <!-- PDF do dia -->
+        <div class="bg-white rounded-xl shadow p-4 mb-6 max-w-3xl flex flex-wrap items-end gap-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Data do evento / retirada (PDF)</label>
+            <input type="date" id="uni-filtro-data" class="px-3 py-2 border rounded-lg text-sm" onchange="renderUnisocialLista()">
+          </div>
+          <button type="button" onclick="downloadUnisocialPDF()" class="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-lg">
+            Download PDF do dia
+          </button>
+          <p class="text-xs text-gray-500 w-full">Escolha a data e baixe a lista de quem retirou nesse dia (ou todos os cadastrados se filtrar só por busca).</p>
+        </div>
+
+        <div id="uni-resumo" class="mb-3 text-sm text-gray-600"></div>
+        <div id="lista-unisocial" class="space-y-3 max-w-3xl"></div>
+      </div>
+
+      <!-- CONTAGEM DE OBREIROS / REUNIÕES -->
+      <div id="page-contagem" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Contagem das reuniões</h1>
+        <p class="text-sm text-gray-500 mb-6">Cada responsável lança a contagem da sua reunião (dia + horário). O sistema soma o dia e permite comparar semanas e dias da semana.</p>
+
+        <div id="cont-sucesso" class="hidden mb-4 max-w-3xl rounded-xl border border-green-300 bg-green-50 p-4">
+          <p class="font-semibold text-green-800">✅ Contagem salva!</p>
+        </div>
+
+        <form id="form-contagem" class="bg-white rounded-xl shadow p-6 space-y-4 max-w-3xl mb-8">
+          <input type="hidden" id="cont_edit_id" value="">
+          <h2 class="text-lg font-semibold text-evg-blue border-b pb-2">Lançar contagem</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1">Data da reunião *</label>
+              <input type="date" id="cont-data" required class="w-full px-3 py-2 border rounded-lg text-sm" onchange="atualizarDiaSemanaContagem()">
+              <p id="cont-dia-semana" class="text-sm font-medium text-evg-blue mt-1">—</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Horário da reunião *</label>
+              <input type="time" id="cont-horario" required class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium mb-1">Responsável (quem contou) *</label>
+              <input type="text" id="cont-responsavel" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Seu nome">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Obreiros com uniforme *</label>
+              <input type="number" id="cont-com" min="0" required value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Obreiros sem uniforme *</label>
+              <input type="number" id="cont-sem" min="0" required value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Quantidade de membros *</label>
+              <input type="number" id="cont-membros" min="0" required value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Total (automático)</label>
+              <input type="text" id="cont-total-preview" readonly class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 font-semibold text-evg-blue" value="0">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium mb-1">Observação</label>
+              <input type="text" id="cont-obs" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Opcional">
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="submit" id="cont-btn-salvar" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">Salvar contagem</button>
+            <button type="button" onclick="limparFormContagem()" class="text-sm text-gray-600 hover:underline px-3">Limpar</button>
+          </div>
+        </form>
+
+        <!-- Filtros e resumo -->
+        <div class="bg-white rounded-xl shadow p-4 mb-4 max-w-4xl space-y-3">
+          <div class="flex flex-wrap items-end gap-3">
+            <div>
+              <label class="block text-sm font-medium mb-1">Data</label>
+              <input type="date" id="cont-filtro-data" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Dia da semana</label>
+              <select id="cont-filtro-dia" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
+                <option value="">Todos</option>
+                <option value="0">Domingo</option>
+                <option value="1">Segunda</option>
+                <option value="2">Terça</option>
+                <option value="3">Quarta</option>
+                <option value="4">Quinta</option>
+                <option value="5">Sexta</option>
+                <option value="6">Sábado</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">De (semana)</label>
+              <input type="date" id="cont-filtro-de" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Até</label>
+              <input type="date" id="cont-filtro-ate" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
+            </div>
+            <button type="button" onclick="limparFiltrosContagem()" class="text-sm text-evg-blue hover:underline">Limpar filtros</button>
+          </div>
+          <div id="cont-resumo" class="text-sm text-gray-700"></div>
+          <div id="cont-grafico-wrap" class="overflow-x-auto">
+            <canvas id="cont-grafico" height="120" class="w-full max-w-3xl"></canvas>
+          </div>
+        </div>
+
+        <div id="lista-contagem" class="space-y-3 max-w-4xl"></div>
+      </div>
+
       </div><!-- fim padding conteúdo -->
     </main>
   </div>
@@ -1082,6 +1305,18 @@
       try {
         const q = new URLSearchParams(window.location.search);
         return q.get('nucleos') === '1' || q.get('nucleo') === '1';
+      } catch (e) { return false; }
+    })();
+    const MODO_PUBLICO_UNISOCIAL = (() => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        return q.get('unisocial') === '1';
+      } catch (e) { return false; }
+    })();
+    const MODO_PUBLICO_CONTAGEM = (() => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        return q.get('contagem') === '1';
       } catch (e) { return false; }
     })();
 
@@ -1112,6 +1347,9 @@
     let almasRegistros = [];
     let nucleosRegistros = [];
     let nucleoVolSelecionados = [];
+    let unisocialPessoas = [];
+    let unisocialRetiradas = [];
+    let contagens = [];
     let voluntarioAtualId = null;
     let almasLinhaSeq = 0;
 
@@ -1187,8 +1425,37 @@
       }));
     }
 
+    async function carregarUnisocial() {
+      const [p, r] = await Promise.all([
+        supabaseClient.from('unisocial_pessoas').select('*').order('nome'),
+        supabaseClient.from('unisocial_retiradas').select('*').order('data_retirada', { ascending: false })
+      ]);
+      if (p.error) {
+        console.error('Erro unisocial pessoas:', p.error);
+        unisocialPessoas = [];
+      } else {
+        unisocialPessoas = p.data || [];
+      }
+      if (r.error) {
+        console.error('Erro unisocial retiradas:', r.error);
+        unisocialRetiradas = [];
+      } else {
+        unisocialRetiradas = r.data || [];
+      }
+    }
+
+    async function carregarContagens() {
+      const { data, error } = await supabaseClient.from('contagem_reunioes').select('*').order('data_reuniao', { ascending: false });
+      if (error) {
+        console.error('Erro contagem:', error);
+        contagens = [];
+        return;
+      }
+      contagens = data || [];
+    }
+
     async function carregarTudo() {
-      await Promise.all([carregarVoluntarios(), carregarAtendimentos(), carregarRelatorios(), carregarAlmas(), carregarNucleos()]);
+      await Promise.all([carregarVoluntarios(), carregarAtendimentos(), carregarRelatorios(), carregarAlmas(), carregarNucleos(), carregarUnisocial(), carregarContagens()]);
     }
 
     // ===================== LOGIN =====================
@@ -1321,10 +1588,36 @@
     }
 
     // Sessão existente OU modo público
+    async function iniciarModoPublicoUnisocial() {
+      usuarioLogado = { nome: 'Unisocial', tipo: 'coordenador', role: 'Link público Unisocial', publico: true };
+      esconderChromePublico();
+      try { await carregarUnisocial(); } catch (e) {}
+      limparFormUnisocial();
+      showPage('unisocial');
+      const titulo = document.querySelector('#page-unisocial h1');
+      if (titulo) titulo.textContent = 'Unisocial — Cadastro';
+      const sub = document.querySelector('#page-unisocial > p.text-sm');
+      if (sub) sub.textContent = 'Cadastre e consulte pessoas da cesta básica. Não é necessário login.';
+    }
+
     if (MODO_PUBLICO_RELATORIO) {
       iniciarModoPublicoRelatorio();
     } else if (MODO_PUBLICO_NUCLEOS) {
       iniciarModoPublicoNucleos();
+    } else if (MODO_PUBLICO_UNISOCIAL) {
+      iniciarModoPublicoUnisocial();
+    } else if (MODO_PUBLICO_CONTAGEM) {
+      (async function iniciarModoPublicoContagem() {
+        usuarioLogado = { nome: 'Responsável', tipo: 'coordenador', role: 'Link contagem', publico: true };
+        esconderChromePublico();
+        try { await carregarContagens(); } catch (e) {}
+        limparFormContagem();
+        showPage('contagem');
+        const titulo = document.querySelector('#page-contagem h1');
+        if (titulo) titulo.textContent = 'Contagem da reunião';
+        const sub = document.querySelector('#page-contagem > p.text-sm');
+        if (sub) sub.textContent = 'Preencha a contagem da sua reunião e envie. Não é necessário login.';
+      })();
     } else {
       supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
         if (!session) return;
@@ -1402,6 +1695,18 @@
       if (page === 'nucleos') {
         initFormNucleos();
         renderNucleosHistorico();
+      }
+      if (page === 'unisocial') {
+        limparFormUnisocial();
+        renderUnisocialLista();
+      }
+      if (page === 'contagem') {
+        limparFormContagem();
+        renderContagem();
+        ['cont-com','cont-sem','cont-membros'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.oninput = atualizarTotalContagem;
+        });
       }
     }
 
@@ -1819,13 +2124,120 @@
     }
 
     // ===================== DASHBOARD =====================
+    function desenharDonut(canvasId, parts) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      const r = Math.min(cx, cy) - 8;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const total = parts.reduce((s, p) => s + p.value, 0) || 1;
+      let ang = -Math.PI / 2;
+      parts.forEach(p => {
+        const slice = (p.value / total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, ang, ang + slice);
+        ctx.closePath();
+        ctx.fillStyle = p.color;
+        ctx.fill();
+        ang += slice;
+      });
+      // furo
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.fillStyle = '#1e3a5f';
+      ctx.font = 'bold 22px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(parts.reduce((s, p) => s + p.value, 0)), cx, cy - 6);
+      ctx.font = '11px sans-serif';
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText('total', cx, cy + 14);
+    }
+
     function atualizarDashboard() {
       const ativos = voluntarios.filter(v => isAtivo(v)).length;
       const arquivados = voluntarios.filter(v => v.status === 'arquivado').length;
+      const hoje = new Date().toISOString().slice(0, 10);
+      const mesAtual = hoje.slice(0, 7);
 
-      document.getElementById('stat-total').textContent = voluntarios.length;
-      document.getElementById('stat-ativos').textContent = ativos;
-      document.getElementById('stat-arquivados').textContent = arquivados;
+      const nucleosMes = (typeof nucleosRegistros !== 'undefined' ? nucleosRegistros : [])
+        .filter(n => (n.mes || String(n.data_semana || '').slice(0, 7)) === mesAtual).length;
+
+      const uniMes = (typeof unisocialRetiradas !== 'undefined' ? unisocialRetiradas : [])
+        .filter(r => String(r.data_retirada || '').slice(0, 7) === mesAtual).length
+        + (typeof unisocialPessoas !== 'undefined' ? unisocialPessoas : [])
+          .filter(p => String(p.data_evento || '').slice(0, 7) === mesAtual).length;
+
+      const contHoje = (typeof contagens !== 'undefined' ? contagens : [])
+        .filter(c => String(c.data_reuniao).slice(0, 10) === hoje)
+        .reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0), 0);
+
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('stat-total', voluntarios.length);
+      set('stat-ativos', ativos);
+      set('stat-arquivados', arquivados);
+      set('stat-nucleos', nucleosMes);
+      set('stat-uni', uniMes);
+      set('stat-cont-hoje', contHoje);
+
+      desenharDonut('dash-chart-vol', [
+        { value: ativos, color: '#22c55e' },
+        { value: arquivados, color: '#9ca3af' },
+        { value: Math.max(voluntarios.length - ativos - arquivados, 0), color: '#93c5fd' }
+      ]);
+
+      // barras últimos 7 dias contagem
+      const canvas = document.getElementById('dash-chart-cont');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const dias = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const iso = d.toISOString().slice(0, 10);
+          const tot = (contagens || [])
+            .filter(c => String(c.data_reuniao).slice(0, 10) === iso)
+            .reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0), 0);
+          dias.push({ iso, tot, label: iso.slice(8) + '/' + iso.slice(5, 7) });
+        }
+        const max = Math.max(...dias.map(d => d.tot), 1);
+        const barW = 22;
+        dias.forEach((d, i) => {
+          const h = (d.tot / max) * 90;
+          const x = 20 + i * 28;
+          const y = 110 - h;
+          ctx.fillStyle = '#1e3a5f';
+          ctx.fillRect(x, y, barW, h);
+          ctx.fillStyle = '#6b7280';
+          ctx.font = '9px sans-serif';
+          ctx.fillText(d.label, x - 2, 125);
+          if (d.tot) {
+            ctx.fillStyle = '#1e3a5f';
+            ctx.font = '10px sans-serif';
+            ctx.fillText(String(d.tot), x + 2, y - 4);
+          }
+        });
+      }
+
+      const almasMes = (typeof almasRegistros !== 'undefined' ? almasRegistros : [])
+        .filter(a => (a.mes || String(a.data_evento || '').slice(0, 7)) === mesAtual)
+        .reduce((t, a) => t + (Number(a.total) || 0), 0);
+
+      const resumo = document.getElementById('dash-resumo-rapido');
+      if (resumo) {
+        resumo.innerHTML = `
+          <div class="flex justify-between py-1 border-b"><span>Almas no mês</span><strong class="text-evg-blue">${almasMes}</strong></div>
+          <div class="flex justify-between py-1 border-b"><span>Núcleos no mês</span><strong class="text-amber-600">${nucleosMes}</strong></div>
+          <div class="flex justify-between py-1 border-b"><span>Unisocial (mês)</span><strong class="text-purple-600">${uniMes}</strong></div>
+          <div class="flex justify-between py-1 border-b"><span>Contagem de hoje</span><strong class="text-evg-red">${contHoje}</strong></div>
+          <div class="flex justify-between py-1"><span>Pessoas Unisocial cadastradas</span><strong>${(unisocialPessoas || []).length}</strong></div>
+        `;
+      }
 
       const ultimos = [...voluntarios]
         .sort((a, b) => new Date(b.criado_em) - new Date(a.criado_em))
@@ -2991,6 +3403,611 @@
       }
       await carregarNucleos();
       renderNucleosHistorico();
+    }
+
+    // ===================== UNISOCIAL =====================
+    function previewFotoUni(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          const max = 600;
+          let w = img.width, h = img.height;
+          if (w > max || h > max) {
+            if (w > h) { h = Math.round(h * max / w); w = max; }
+            else { w = Math.round(w * max / h); h = max; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          document.getElementById('uni-foto-base64').value = dataUrl;
+          document.getElementById('uni-foto-preview').innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover">`;
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function limparFormUnisocial() {
+      const form = document.getElementById('form-unisocial');
+      if (form) form.reset();
+      const editId = document.getElementById('uni_edit_id');
+      if (editId) editId.value = '';
+      const foto = document.getElementById('uni-foto-base64');
+      if (foto) foto.value = '';
+      const prev = document.getElementById('uni-foto-preview');
+      if (prev) prev.innerHTML = '<span class="text-gray-400 text-xs">Foto</span>';
+      const btn = document.getElementById('uni-btn-salvar');
+      if (btn) btn.textContent = 'Salvar cadastro';
+    }
+
+    function retiradasDaPessoa(pessoaId) {
+      return unisocialRetiradas
+        .filter(r => r.pessoa_id === pessoaId)
+        .sort((a, b) => String(b.data_retirada).localeCompare(String(a.data_retirada)));
+    }
+
+    function formatDataBR(iso) {
+      if (!iso) return '—';
+      return String(iso).slice(0, 10).split('-').reverse().join('/');
+    }
+
+    function renderUnisocialLista() {
+      const container = document.getElementById('lista-unisocial');
+      const resumo = document.getElementById('uni-resumo');
+      if (!container) return;
+
+      const busca = (document.getElementById('uni-busca')?.value || '').toLowerCase().trim();
+      const filtroData = document.getElementById('uni-filtro-data')?.value || '';
+
+      let lista = [...unisocialPessoas];
+      if (busca) {
+        lista = lista.filter(p => (p.nome || '').toLowerCase().includes(busca));
+      }
+
+      // Filtro de data: cadastrados para o evento OU que retiraram no dia
+      if (filtroData) {
+        const idsRetiradaDia = new Set(
+          unisocialRetiradas
+            .filter(r => String(r.data_retirada).slice(0, 10) === filtroData)
+            .map(r => r.pessoa_id)
+        );
+        lista = lista.filter(p =>
+          String(p.data_evento || '').slice(0, 10) === filtroData || idsRetiradaDia.has(p.id)
+        );
+      }
+
+      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+      if (resumo) {
+        resumo.innerHTML = filtroData
+          ? `<strong>Dia ${formatDataBR(filtroData)}:</strong> ${lista.length} pessoa(s) com retirada registrada`
+          : `<strong>Cadastrados:</strong> ${lista.length}` + (busca ? ` (filtro: "${busca}")` : '');
+      }
+
+      if (lista.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 bg-white rounded-xl shadow p-6">Nenhuma pessoa encontrada.</p>';
+        return;
+      }
+
+      const isGestao = usuarioLogado && usuarioLogado.tipo === 'gestao';
+
+      container.innerHTML = lista.map(p => {
+        const rets = retiradasDaPessoa(p.id);
+        const ultima = rets[0];
+        const hist = rets.slice(0, 5).map(r => formatDataBR(r.data_retirada)).join(', ') || 'Nenhuma retirada ainda';
+        const nasc = formatDataBR(p.nascimento);
+        const alerta = ultima
+          ? `<div class="mt-2 text-sm bg-amber-50 text-amber-900 border border-amber-200 rounded-lg px-3 py-2">Já retirou. Última: <strong>${formatDataBR(ultima.data_retirada)}</strong> — confira e decidam se entregam de novo.</div>`
+          : `<div class="mt-2 text-sm text-green-700">Sem retirada registrada ainda.</div>`;
+
+        return `
+          <div class="bg-white rounded-xl shadow p-4 border-l-4 border-evg-blue">
+            <div class="flex gap-3">
+              <div class="w-16 h-16 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                ${p.foto ? `<img src="${p.foto}" class="w-full h-full object-cover">` : '<div class="w-full h-full flex items-center justify-center text-xs text-gray-400">Sem foto</div>'}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-evg-blue">${p.nome || '—'}</div>
+                <div class="text-sm text-gray-600">Nasc.: ${nasc} ${p.profissao ? '• ' + p.profissao : ''}</div>
+                <div class="text-sm text-evg-blue font-medium">Evento: ${p.data_evento ? formatDataBR(p.data_evento) : '—'}</div>
+                ${p.celular ? `<div class="text-sm text-gray-700">📱 ${p.celular}</div>` : ''}
+                <div class="text-sm text-gray-600">${p.endereco || ''}${p.numero ? ', nº ' + p.numero : ''}</div>
+                <div class="text-sm text-gray-500">Pessoas na casa: ${p.qtd_pessoas != null ? p.qtd_pessoas : '—'}</div>
+                <div class="text-xs text-gray-400 mt-1">Retiradas: ${hist}</div>
+                ${alerta}
+                <div class="flex flex-wrap gap-2 mt-3">
+                  <button type="button" onclick="registrarRetiradaUni('${p.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">Registrar retirada hoje</button>
+                  <button type="button" onclick="editarUnisocial('${p.id}')" class="text-evg-blue text-sm hover:underline px-2">Editar</button>
+                  ${isGestao ? `<button type="button" onclick="excluirUnisocial('${p.id}')" class="text-red-600 text-sm hover:underline px-2">Excluir</button>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('form-unisocial')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nome = (document.getElementById('uni-nome').value || '').trim();
+      const nascimento = document.getElementById('uni-nascimento').value;
+      const dataEvento = document.getElementById('uni-data-evento')?.value || '';
+      if (!nome || !nascimento) {
+        alert('Preencha nome completo e data de nascimento.');
+        return;
+      }
+      if (!dataEvento) {
+        alert('Preencha a data do evento (dia da cesta).');
+        return;
+      }
+
+      const editId = (document.getElementById('uni_edit_id')?.value || '').trim();
+      const dados = {
+        nome,
+        nascimento,
+        data_evento: dataEvento,
+        profissao: (document.getElementById('uni-profissao').value || '').trim() || null,
+        celular: (document.getElementById('uni-celular').value || '').trim() || null,
+        endereco: (document.getElementById('uni-endereco').value || '').trim() || null,
+        numero: (document.getElementById('uni-numero').value || '').trim() || null,
+        qtd_pessoas: (() => {
+          const v = document.getElementById('uni-qtd').value;
+          return v === '' ? null : parseInt(v, 10);
+        })(),
+        foto: document.getElementById('uni-foto-base64').value || null
+      };
+
+      // Aviso se já existe mesmo nome + nascimento
+      if (!editId) {
+        const dup = unisocialPessoas.find(p =>
+          (p.nome || '').toLowerCase() === nome.toLowerCase() &&
+          String(p.nascimento || '').slice(0, 10) === nascimento
+        );
+        if (dup) {
+          const rets = retiradasDaPessoa(dup.id);
+          const ult = rets[0];
+          const msg = ult
+            ? `Já existe cadastro de "${dup.nome}" (nasc. ${formatDataBR(dup.nascimento)}).\nÚltima retirada: ${formatDataBR(ult.data_retirada)}.\n\nUse a busca e Editar, ou registre uma nova retirada na ficha dela.`
+            : `Já existe cadastro de "${dup.nome}" (nasc. ${formatDataBR(dup.nascimento)}).\nUse a busca para abrir a ficha.`;
+          alert(msg);
+          document.getElementById('uni-busca').value = nome;
+          renderUnisocialLista();
+          return;
+        }
+      }
+
+      let error;
+      if (editId) {
+        ({ error } = await supabaseClient.from('unisocial_pessoas').update(dados).eq('id', editId));
+      } else {
+        ({ error } = await supabaseClient.from('unisocial_pessoas').insert([dados]));
+      }
+      if (error) {
+        alert('Erro ao salvar: ' + error.message + '\n\nRode o SQL do Unisocial no Supabase se a tabela ainda não existir.');
+        return;
+      }
+
+      await carregarUnisocial();
+      limparFormUnisocial();
+      renderUnisocialLista();
+      const ok = document.getElementById('uni-sucesso');
+      if (ok) {
+        ok.classList.remove('hidden');
+        setTimeout(() => ok.classList.add('hidden'), 8000);
+      }
+      try { alert(editId ? 'Cadastro atualizado!' : 'Cadastro salvo!'); } catch (err) {}
+    });
+
+    function editarUnisocial(id) {
+      const p = unisocialPessoas.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('uni_edit_id').value = p.id;
+      document.getElementById('uni-nome').value = p.nome || '';
+      document.getElementById('uni-nascimento').value = p.nascimento ? String(p.nascimento).slice(0, 10) : '';
+      const de = document.getElementById('uni-data-evento');
+      if (de) de.value = p.data_evento ? String(p.data_evento).slice(0, 10) : '';
+      document.getElementById('uni-profissao').value = p.profissao || '';
+      const cel = document.getElementById('uni-celular');
+      if (cel) cel.value = p.celular || '';
+      document.getElementById('uni-endereco').value = p.endereco || '';
+      document.getElementById('uni-numero').value = p.numero || '';
+      document.getElementById('uni-qtd').value = p.qtd_pessoas != null ? p.qtd_pessoas : '';
+      document.getElementById('uni-foto-base64').value = p.foto || '';
+      const prev = document.getElementById('uni-foto-preview');
+      if (p.foto) prev.innerHTML = `<img src="${p.foto}" class="w-full h-full object-cover">`;
+      else prev.innerHTML = '<span class="text-gray-400 text-xs">Foto</span>';
+      document.getElementById('uni-btn-salvar').textContent = 'Atualizar cadastro';
+      document.getElementById('form-unisocial').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function excluirUnisocial(id) {
+      if (!confirm('Excluir este cadastro e todas as retiradas dele?')) return;
+      await supabaseClient.from('unisocial_retiradas').delete().eq('pessoa_id', id);
+      const { error } = await supabaseClient.from('unisocial_pessoas').delete().eq('id', id);
+      if (error) {
+        alert('Erro ao excluir: ' + error.message);
+        return;
+      }
+      await carregarUnisocial();
+      renderUnisocialLista();
+    }
+
+    async function registrarRetiradaUni(pessoaId) {
+      const p = unisocialPessoas.find(x => x.id === pessoaId);
+      if (!p) return;
+      const rets = retiradasDaPessoa(pessoaId);
+      const ultima = rets[0];
+      let dataPadrao = document.getElementById('uni-filtro-data')?.value || new Date().toISOString().slice(0, 10);
+      let msg = `Registrar retirada de "${p.nome}"?\nData (AAAA-MM-DD):`;
+      if (ultima) {
+        msg = `Última retirada de "${p.nome}": ${formatDataBR(ultima.data_retirada)}.\n\nInforme a data desta retirada (AAAA-MM-DD):`;
+      }
+      const data = prompt(msg, dataPadrao);
+      if (!data) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+        alert('Data inválida. Use o formato AAAA-MM-DD (ex.: 2026-09-13).');
+        return;
+      }
+      const { error } = await supabaseClient.from('unisocial_retiradas').insert([{
+        pessoa_id: pessoaId,
+        data_retirada: data,
+        registrado_por: usuarioLogado?.nome || null
+      }]);
+      if (error) {
+        alert('Erro ao registrar retirada: ' + error.message);
+        return;
+      }
+      await carregarUnisocial();
+      if (document.getElementById('uni-filtro-data')) document.getElementById('uni-filtro-data').value = data;
+      renderUnisocialLista();
+      alert('Retirada registrada em ' + formatDataBR(data));
+    }
+
+    function downloadUnisocialPDF() {
+      const filtroData = document.getElementById('uni-filtro-data')?.value || '';
+      let lista = [...unisocialPessoas];
+      const busca = (document.getElementById('uni-busca')?.value || '').toLowerCase().trim();
+      if (busca) lista = lista.filter(p => (p.nome || '').toLowerCase().includes(busca));
+
+      if (filtroData) {
+        const ids = new Set(
+          unisocialRetiradas
+            .filter(r => String(r.data_retirada).slice(0, 10) === filtroData)
+            .map(r => r.pessoa_id)
+        );
+        lista = lista.filter(p =>
+          String(p.data_evento || '').slice(0, 10) === filtroData || ids.has(p.id)
+        );
+      }
+
+      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+      const titulo = filtroData
+        ? 'Unisocial — Evento / retiradas em ' + formatDataBR(filtroData)
+        : 'Unisocial — Lista de cadastrados';
+
+      const rows = lista.map((p, i) => {
+        const rets = retiradasDaPessoa(p.id);
+        const ultima = rets[0] ? formatDataBR(rets[0].data_retirada) : '—';
+        return `<tr>
+          <td>${i + 1}</td>
+          <td>${p.nome || ''}</td>
+          <td>${formatDataBR(p.nascimento)}</td>
+          <td>${p.data_evento ? formatDataBR(p.data_evento) : '—'}</td>
+          <td>${p.celular || ''}</td>
+          <td>${p.endereco || ''} ${p.numero || ''}</td>
+          <td>${p.qtd_pessoas != null ? p.qtd_pessoas : ''}</td>
+          <td>${p.profissao || ''}</td>
+          <td>${ultima}</td>
+        </tr>`;
+      }).join('');
+
+      const w = window.open('', '_blank');
+      w.document.write(`
+        <html><head><title>${titulo}</title>
+        <style>
+          body{font-family:Arial,sans-serif;padding:24px;color:#333;font-size:12px}
+          h1{color:#1e3a5f;font-size:18px;border-bottom:2px solid #c41e3a;padding-bottom:8px}
+          table{width:100%;border-collapse:collapse;margin-top:16px}
+          th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+          th{background:#1e3a5f;color:#fff}
+          @media print{body{padding:10px}}
+        </style></head><body>
+          <h1>${titulo}</h1>
+          <p>Total: ${lista.length} pessoa(s) • Gerado em ${new Date().toLocaleString('pt-BR')}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Nome</th><th>Nascimento</th><th>Data evento</th><th>Celular</th><th>Endereço</th>
+                <th>Pessoas na casa</th><th>Profissão</th><th>Última retirada</th>
+              </tr>
+            </thead>
+            <tbody>${rows || '<tr><td colspan="9">Nenhum registro</td></tr>'}</tbody>
+          </table>
+        </body></html>
+      `);
+      w.document.close();
+      setTimeout(() => { try { w.print(); } catch (e) {} }, 300);
+    }
+
+    // ===================== CONTAGEM REUNIÕES =====================
+    const DIAS_SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+
+    function atualizarDiaSemanaContagem() {
+      const iso = document.getElementById('cont-data')?.value || '';
+      const el = document.getElementById('cont-dia-semana');
+      if (!el) return;
+      if (!iso) {
+        el.textContent = '—';
+        return;
+      }
+      const d = new Date(iso + 'T12:00:00');
+      const nome = DIAS_SEMANA[d.getDay()] || '';
+      el.textContent = nome ? ('Dia da semana: ' + nome) : '—';
+    }
+
+    function atualizarTotalContagem() {
+      const c = parseInt(document.getElementById('cont-com')?.value || 0, 10) || 0;
+      const s = parseInt(document.getElementById('cont-sem')?.value || 0, 10) || 0;
+      const m = parseInt(document.getElementById('cont-membros')?.value || 0, 10) || 0;
+      const el = document.getElementById('cont-total-preview');
+      if (el) el.value = String(c + s + m);
+    }
+
+    function limparFormContagem() {
+      const form = document.getElementById('form-contagem');
+      if (form) form.reset();
+      const editId = document.getElementById('cont_edit_id');
+      if (editId) editId.value = '';
+      const dataEl = document.getElementById('cont-data');
+      if (dataEl) dataEl.value = new Date().toISOString().slice(0, 10);
+      ['cont-com','cont-sem','cont-membros'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '0';
+      });
+      atualizarTotalContagem();
+      atualizarDiaSemanaContagem();
+      const btn = document.getElementById('cont-btn-salvar');
+      if (btn) btn.textContent = 'Salvar contagem';
+    }
+
+    function limparFiltrosContagem() {
+      ['cont-filtro-data','cont-filtro-de','cont-filtro-ate'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      const dia = document.getElementById('cont-filtro-dia');
+      if (dia) dia.value = '';
+      renderContagem();
+    }
+
+    function diaSemanaISO(iso) {
+      if (!iso) return null;
+      const d = new Date(iso + 'T12:00:00');
+      return d.getDay();
+    }
+
+    function filtrarContagens() {
+      const data = document.getElementById('cont-filtro-data')?.value || '';
+      const dia = document.getElementById('cont-filtro-dia')?.value;
+      const de = document.getElementById('cont-filtro-de')?.value || '';
+      const ate = document.getElementById('cont-filtro-ate')?.value || '';
+      let lista = [...contagens];
+      if (data) lista = lista.filter(c => String(c.data_reuniao).slice(0, 10) === data);
+      if (dia !== '' && dia != null) {
+        const n = parseInt(dia, 10);
+        lista = lista.filter(c => diaSemanaISO(String(c.data_reuniao).slice(0, 10)) === n);
+      }
+      if (de) lista = lista.filter(c => String(c.data_reuniao).slice(0, 10) >= de);
+      if (ate) lista = lista.filter(c => String(c.data_reuniao).slice(0, 10) <= ate);
+      return lista;
+    }
+
+    function renderContagem() {
+      const container = document.getElementById('lista-contagem');
+      const resumo = document.getElementById('cont-resumo');
+      if (!container) return;
+
+      const lista = filtrarContagens();
+      lista.sort((a, b) => {
+        const da = String(a.data_reuniao).localeCompare(String(b.data_reuniao));
+        if (da !== 0) return -da;
+        return String(a.horario || '').localeCompare(String(b.horario || ''));
+      });
+
+      const sum = (arr, k) => arr.reduce((t, x) => t + (Number(x[k]) || 0), 0);
+      const totalCom = sum(lista, 'com_uniforme');
+      const totalSem = sum(lista, 'sem_uniforme');
+      const totalMem = sum(lista, 'membros');
+      const totalGeral = totalCom + totalSem + totalMem;
+
+      // Totais por dia
+      const porDia = {};
+      lista.forEach(c => {
+        const d = String(c.data_reuniao).slice(0, 10);
+        if (!porDia[d]) porDia[d] = { com: 0, sem: 0, mem: 0, n: 0 };
+        porDia[d].com += Number(c.com_uniforme) || 0;
+        porDia[d].sem += Number(c.sem_uniforme) || 0;
+        porDia[d].mem += Number(c.membros) || 0;
+        porDia[d].n += 1;
+      });
+
+      if (resumo) {
+        resumo.innerHTML = `
+          <div class="flex flex-wrap gap-2 mb-2">
+            <span class="bg-blue-50 text-evg-blue px-3 py-1 rounded-full text-sm"><strong>${lista.length}</strong> lançamento(s)</span>
+            <span class="bg-green-50 text-green-800 px-3 py-1 rounded-full text-sm">Com uniforme: <strong>${totalCom}</strong></span>
+            <span class="bg-amber-50 text-amber-900 px-3 py-1 rounded-full text-sm">Sem uniforme: <strong>${totalSem}</strong></span>
+            <span class="bg-purple-50 text-purple-800 px-3 py-1 rounded-full text-sm">Membros: <strong>${totalMem}</strong></span>
+            <span class="bg-evg-blue text-white px-3 py-1 rounded-full text-sm">Total: <strong>${totalGeral}</strong></span>
+          </div>
+          <div class="text-xs text-gray-500">Soma do filtro atual (dia / dia da semana / período).</div>
+        `;
+      }
+
+      desenharGraficoContagem(porDia);
+
+      if (lista.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 bg-white rounded-xl shadow p-6">Nenhuma contagem neste filtro.</p>';
+        return;
+      }
+
+      const isGestao = usuarioLogado && usuarioLogado.tipo === 'gestao';
+      // Agrupar por data
+      const grupos = {};
+      lista.forEach(c => {
+        const d = String(c.data_reuniao).slice(0, 10);
+        if (!grupos[d]) grupos[d] = [];
+        grupos[d].push(c);
+      });
+      const datas = Object.keys(grupos).sort().reverse();
+
+      container.innerHTML = datas.map(d => {
+        const items = grupos[d];
+        const tot = items.reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0), 0);
+        const ds = DIAS_SEMANA[diaSemanaISO(d)] || '';
+        const rows = items.map(c => `
+          <div class="border-t border-gray-100 py-2 flex flex-wrap justify-between gap-2 text-sm">
+            <div>
+              <span class="font-medium">${c.horario || '—'}</span>
+              <span class="text-gray-500"> • ${c.responsavel || '—'}</span>
+              <div class="text-xs text-gray-500 mt-0.5">
+                Com unif.: <strong>${c.com_uniforme ?? 0}</strong> ·
+                Sem unif.: <strong>${c.sem_uniforme ?? 0}</strong> ·
+                Membros: <strong>${c.membros ?? 0}</strong> ·
+                Total: <strong>${(Number(c.com_uniforme)||0)+(Number(c.sem_uniforme)||0)+(Number(c.membros)||0)}</strong>
+              </div>
+              ${c.observacao ? `<div class="text-xs text-gray-400">${c.observacao}</div>` : ''}
+            </div>
+            <div class="flex gap-2 h-fit">
+              <button type="button" onclick="editarContagem('${c.id}')" class="text-evg-blue text-sm hover:underline">Editar</button>
+              ${isGestao ? `<button type="button" onclick="excluirContagem('${c.id}')" class="text-red-600 text-sm hover:underline">Excluir</button>` : ''}
+            </div>
+          </div>
+        `).join('');
+        return `
+          <div class="bg-white rounded-xl shadow p-4 border-l-4 border-evg-red">
+            <div class="font-semibold text-evg-blue">${d.split('-').reverse().join('/')} (${ds}) — total do dia: ${tot}</div>
+            ${rows}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function desenharGraficoContagem(porDia) {
+      const canvas = document.getElementById('cont-grafico');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const datas = Object.keys(porDia).sort();
+      const w = canvas.parentElement ? Math.max(canvas.parentElement.clientWidth || 600, 300) : 600;
+      canvas.width = w;
+      canvas.height = 160;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (datas.length === 0) {
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '13px sans-serif';
+        ctx.fillText('Sem dados para o gráfico neste filtro.', 12, 40);
+        return;
+      }
+      const values = datas.map(d => porDia[d].com + porDia[d].sem + porDia[d].mem);
+      const max = Math.max(...values, 1);
+      const barW = Math.min(40, (canvas.width - 40) / datas.length - 6);
+      datas.forEach((d, i) => {
+        const h = (values[i] / max) * 100;
+        const x = 30 + i * ((canvas.width - 40) / datas.length);
+        const y = 120 - h;
+        ctx.fillStyle = '#1e3a5f';
+        ctx.fillRect(x, y, barW, h);
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '10px sans-serif';
+        const label = d.slice(5).split('-').reverse().join('/');
+        ctx.fillText(label, x, 135);
+        ctx.fillText(String(values[i]), x, y - 4);
+      });
+      ctx.fillStyle = '#374151';
+      ctx.font = '11px sans-serif';
+      ctx.fillText('Total por dia (uniforme + membros)', 8, 14);
+    }
+
+    document.getElementById('form-contagem')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = document.getElementById('cont-data').value;
+      const horario = document.getElementById('cont-horario').value;
+      const responsavel = (document.getElementById('cont-responsavel').value || '').trim();
+      const com = parseInt(document.getElementById('cont-com').value || 0, 10) || 0;
+      const sem = parseInt(document.getElementById('cont-sem').value || 0, 10) || 0;
+      const membros = parseInt(document.getElementById('cont-membros').value || 0, 10) || 0;
+      const obs = (document.getElementById('cont-obs').value || '').trim();
+      const editId = (document.getElementById('cont_edit_id')?.value || '').trim();
+
+      if (!data || !horario || !responsavel) {
+        alert('Preencha data, horário e responsável.');
+        return;
+      }
+
+      const registro = {
+        data_reuniao: data,
+        horario: horario,
+        responsavel: responsavel,
+        com_uniforme: com,
+        sem_uniforme: sem,
+        membros: membros,
+        total: com + sem + membros,
+        observacao: obs || null,
+        registrado_por: usuarioLogado?.nome || null
+      };
+
+      let error;
+      if (editId) {
+        ({ error } = await supabaseClient.from('contagem_reunioes').update(registro).eq('id', editId));
+      } else {
+        ({ error } = await supabaseClient.from('contagem_reunioes').insert([registro]));
+      }
+      if (error) {
+        alert('Erro ao salvar: ' + error.message + '\n\nRode o SQL da contagem no Supabase.');
+        return;
+      }
+
+      await carregarContagens();
+      limparFormContagem();
+      renderContagem();
+      const ok = document.getElementById('cont-sucesso');
+      if (ok) {
+        ok.classList.remove('hidden');
+        setTimeout(() => ok.classList.add('hidden'), 8000);
+      }
+      try { alert(editId ? 'Contagem atualizada!' : 'Contagem salva!'); } catch (err) {}
+    });
+
+    function editarContagem(id) {
+      const c = contagens.find(x => x.id === id);
+      if (!c) return;
+      document.getElementById('cont_edit_id').value = c.id;
+      document.getElementById('cont-data').value = String(c.data_reuniao).slice(0, 10);
+      document.getElementById('cont-horario').value = c.horario || '';
+      document.getElementById('cont-responsavel').value = c.responsavel || '';
+      document.getElementById('cont-com').value = c.com_uniforme ?? 0;
+      document.getElementById('cont-sem').value = c.sem_uniforme ?? 0;
+      document.getElementById('cont-membros').value = c.membros ?? 0;
+      document.getElementById('cont-obs').value = c.observacao || '';
+      atualizarTotalContagem();
+      atualizarDiaSemanaContagem();
+      document.getElementById('cont-btn-salvar').textContent = 'Atualizar contagem';
+      document.getElementById('form-contagem').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function excluirContagem(id) {
+      if (!confirm('Excluir esta contagem?')) return;
+      const { error } = await supabaseClient.from('contagem_reunioes').delete().eq('id', id);
+      if (error) {
+        alert('Erro: ' + error.message);
+        return;
+      }
+      await carregarContagens();
+      renderContagem();
     }
   </script>
 </body>
