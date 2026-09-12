@@ -1139,8 +1139,8 @@
               <input type="text" id="uni-profissao" class="w-full px-3 py-2 border rounded-lg text-sm">
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">Celular / WhatsApp</label>
-              <input type="tel" id="uni-celular" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="(13) 99999-9999">
+              <label class="block text-sm font-medium mb-1">Celular / WhatsApp *</label>
+              <input type="tel" id="uni-celular" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="(13) 99999-9999">
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Endereço</label>
@@ -1216,31 +1216,34 @@
               <label class="block text-sm font-medium mb-1">Responsável (quem contou) *</label>
               <input type="text" id="cont-responsavel" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Seu nome">
             </div>
+            <div class="md:col-span-2 border-t pt-3">
+              <p class="text-sm font-semibold text-evg-blue mb-2">Quantidades da reunião</p>
+            </div>
             <div>
-              <label class="block text-sm font-medium mb-1">Obreiros com uniforme *</label>
+              <label class="block text-sm font-medium mb-1">① Obreiros com uniforme *</label>
               <input type="number" id="cont-com" min="0" required value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">Obreiros sem uniforme *</label>
+              <label class="block text-sm font-medium mb-1">② Obreiros sem uniforme *</label>
               <input type="number" id="cont-sem" min="0" required value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">Quantidade de membros *</label>
+              <label class="block text-sm font-medium mb-1">③ Membros (povo) *</label>
               <input type="number" id="cont-membros" min="0" required value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">CPO (em formação para obreiro)</label>
+              <label class="block text-sm font-medium mb-1">④ CPO</label>
               <input type="number" id="cont-cpo" min="0" value="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="0">
-              <p class="text-xs text-gray-500 mt-1">Quem está sendo ensinado a ser obreiro.</p>
+              <p class="text-xs text-gray-500 mt-1">Em formação para ser obreiro.</p>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">Obr na EBI</label>
+              <label class="block text-sm font-medium mb-1">⑤ Obr na EBI</label>
               <input type="number" id="cont-obr-ebi" min="0" value="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="0">
-              <p class="text-xs text-gray-500 mt-1">Obreiras trabalhando na EBI.</p>
+              <p class="text-xs text-gray-500 mt-1">Obreiras na EBI nesta reunião.</p>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">Total (automático)</label>
-              <input type="text" id="cont-total-preview" readonly class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 font-semibold text-evg-blue" value="0">
+              <label class="block text-sm font-medium mb-1">Total da reunião (1+2+3+4+5)</label>
+              <input type="text" id="cont-total-preview" readonly class="w-full px-3 py-2 border-2 border-evg-blue rounded-lg text-sm bg-evg-light font-bold text-evg-blue" value="0">
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Observação</label>
@@ -3546,12 +3549,17 @@
       const nome = (document.getElementById('uni-nome').value || '').trim();
       const nascimento = document.getElementById('uni-nascimento').value;
       const dataEvento = document.getElementById('uni-data-evento')?.value || '';
+      const celular = (document.getElementById('uni-celular').value || '').trim();
       if (!nome || !nascimento) {
         alert('Preencha nome completo e data de nascimento.');
         return;
       }
       if (!dataEvento) {
         alert('Preencha a data do evento (dia da cesta).');
+        return;
+      }
+      if (!celular) {
+        alert('Preencha o celular / WhatsApp.');
         return;
       }
 
@@ -3561,7 +3569,7 @@
         nascimento,
         data_evento: dataEvento,
         profissao: (document.getElementById('uni-profissao').value || '').trim() || null,
-        celular: (document.getElementById('uni-celular').value || '').trim() || null,
+        celular: celular,
         endereco: (document.getElementById('uni-endereco').value || '').trim() || null,
         numero: (document.getElementById('uni-numero').value || '').trim() || null,
         qtd_pessoas: (() => {
@@ -3894,13 +3902,9 @@
             <div>
               <span class="font-medium">${c.horario || '—'}</span>
               <span class="text-gray-500"> • ${c.responsavel || '—'}</span>
-              <div class="text-xs text-gray-500 mt-0.5">
-                Com unif.: <strong>${c.com_uniforme ?? 0}</strong> ·
-                Sem unif.: <strong>${c.sem_uniforme ?? 0}</strong> ·
-                Membros: <strong>${c.membros ?? 0}</strong> ·
-                CPO: <strong>${c.cpo ?? 0}</strong> ·
-                Obr EBI: <strong>${c.obr_ebi ?? 0}</strong> ·
-                Total: <strong>${linhaTotal}</strong>
+              <div class="text-xs text-gray-600 mt-1 space-y-0.5">
+                <div>Com uniforme: <strong>${c.com_uniforme ?? 0}</strong> · Sem uniforme: <strong>${c.sem_uniforme ?? 0}</strong> · Membros: <strong>${c.membros ?? 0}</strong></div>
+                <div>CPO: <strong>${c.cpo ?? 0}</strong> · Obr na EBI: <strong>${c.obr_ebi ?? 0}</strong> · <span class="text-evg-blue">Total: <strong>${linhaTotal}</strong></span></div>
               </div>
               ${c.observacao ? `<div class="text-xs text-gray-400">${c.observacao}</div>` : ''}
             </div>
