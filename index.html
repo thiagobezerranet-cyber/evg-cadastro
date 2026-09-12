@@ -1229,6 +1229,16 @@
               <input type="number" id="cont-membros" min="0" required value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
             </div>
             <div>
+              <label class="block text-sm font-medium mb-1">CPO (em formação para obreiro)</label>
+              <input type="number" id="cont-cpo" min="0" value="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="0">
+              <p class="text-xs text-gray-500 mt-1">Quem está sendo ensinado a ser obreiro.</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Obr na EBI</label>
+              <input type="number" id="cont-obr-ebi" min="0" value="0" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="0">
+              <p class="text-xs text-gray-500 mt-1">Obreiras trabalhando na EBI.</p>
+            </div>
+            <div>
               <label class="block text-sm font-medium mb-1">Total (automático)</label>
               <input type="text" id="cont-total-preview" readonly class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-50 font-semibold text-evg-blue" value="0">
             </div>
@@ -1703,7 +1713,7 @@
       if (page === 'contagem') {
         limparFormContagem();
         renderContagem();
-        ['cont-com','cont-sem','cont-membros'].forEach(id => {
+        ['cont-com','cont-sem','cont-membros','cont-cpo','cont-obr-ebi'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.oninput = atualizarTotalContagem;
         });
@@ -2174,7 +2184,7 @@
 
       const contHoje = (typeof contagens !== 'undefined' ? contagens : [])
         .filter(c => String(c.data_reuniao).slice(0, 10) === hoje)
-        .reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0), 0);
+        .reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0) + (Number(c.cpo)||0) + (Number(c.obr_ebi)||0), 0);
 
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
       set('stat-total', voluntarios.length);
@@ -2202,7 +2212,7 @@
           const iso = d.toISOString().slice(0, 10);
           const tot = (contagens || [])
             .filter(c => String(c.data_reuniao).slice(0, 10) === iso)
-            .reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0), 0);
+            .reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0) + (Number(c.cpo)||0) + (Number(c.obr_ebi)||0), 0);
           dias.push({ iso, tot, label: iso.slice(8) + '/' + iso.slice(5, 7) });
         }
         const max = Math.max(...dias.map(d => d.tot), 1);
@@ -3753,8 +3763,10 @@
       const c = parseInt(document.getElementById('cont-com')?.value || 0, 10) || 0;
       const s = parseInt(document.getElementById('cont-sem')?.value || 0, 10) || 0;
       const m = parseInt(document.getElementById('cont-membros')?.value || 0, 10) || 0;
+      const cpo = parseInt(document.getElementById('cont-cpo')?.value || 0, 10) || 0;
+      const ebi = parseInt(document.getElementById('cont-obr-ebi')?.value || 0, 10) || 0;
       const el = document.getElementById('cont-total-preview');
-      if (el) el.value = String(c + s + m);
+      if (el) el.value = String(c + s + m + cpo + ebi);
     }
 
     function limparFormContagem() {
@@ -3764,7 +3776,7 @@
       if (editId) editId.value = '';
       const dataEl = document.getElementById('cont-data');
       if (dataEl) dataEl.value = new Date().toISOString().slice(0, 10);
-      ['cont-com','cont-sem','cont-membros'].forEach(id => {
+      ['cont-com','cont-sem','cont-membros','cont-cpo','cont-obr-ebi'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '0';
       });
@@ -3822,16 +3834,20 @@
       const totalCom = sum(lista, 'com_uniforme');
       const totalSem = sum(lista, 'sem_uniforme');
       const totalMem = sum(lista, 'membros');
-      const totalGeral = totalCom + totalSem + totalMem;
+      const totalCpo = sum(lista, 'cpo');
+      const totalEbi = sum(lista, 'obr_ebi');
+      const totalGeral = totalCom + totalSem + totalMem + totalCpo + totalEbi;
 
       // Totais por dia
       const porDia = {};
       lista.forEach(c => {
         const d = String(c.data_reuniao).slice(0, 10);
-        if (!porDia[d]) porDia[d] = { com: 0, sem: 0, mem: 0, n: 0 };
+        if (!porDia[d]) porDia[d] = { com: 0, sem: 0, mem: 0, cpo: 0, ebi: 0, n: 0 };
         porDia[d].com += Number(c.com_uniforme) || 0;
         porDia[d].sem += Number(c.sem_uniforme) || 0;
         porDia[d].mem += Number(c.membros) || 0;
+        porDia[d].cpo += Number(c.cpo) || 0;
+        porDia[d].ebi += Number(c.obr_ebi) || 0;
         porDia[d].n += 1;
       });
 
@@ -3842,6 +3858,8 @@
             <span class="bg-green-50 text-green-800 px-3 py-1 rounded-full text-sm">Com uniforme: <strong>${totalCom}</strong></span>
             <span class="bg-amber-50 text-amber-900 px-3 py-1 rounded-full text-sm">Sem uniforme: <strong>${totalSem}</strong></span>
             <span class="bg-purple-50 text-purple-800 px-3 py-1 rounded-full text-sm">Membros: <strong>${totalMem}</strong></span>
+            <span class="bg-indigo-50 text-indigo-800 px-3 py-1 rounded-full text-sm">CPO: <strong>${totalCpo}</strong></span>
+            <span class="bg-pink-50 text-pink-800 px-3 py-1 rounded-full text-sm">Obr EBI: <strong>${totalEbi}</strong></span>
             <span class="bg-evg-blue text-white px-3 py-1 rounded-full text-sm">Total: <strong>${totalGeral}</strong></span>
           </div>
           <div class="text-xs text-gray-500">Soma do filtro atual (dia / dia da semana / período).</div>
@@ -3867,9 +3885,11 @@
 
       container.innerHTML = datas.map(d => {
         const items = grupos[d];
-        const tot = items.reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0), 0);
+        const tot = items.reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0) + (Number(c.cpo)||0) + (Number(c.obr_ebi)||0), 0);
         const ds = DIAS_SEMANA[diaSemanaISO(d)] || '';
-        const rows = items.map(c => `
+        const rows = items.map(c => {
+          const linhaTotal = (Number(c.com_uniforme)||0)+(Number(c.sem_uniforme)||0)+(Number(c.membros)||0)+(Number(c.cpo)||0)+(Number(c.obr_ebi)||0);
+          return `
           <div class="border-t border-gray-100 py-2 flex flex-wrap justify-between gap-2 text-sm">
             <div>
               <span class="font-medium">${c.horario || '—'}</span>
@@ -3878,7 +3898,9 @@
                 Com unif.: <strong>${c.com_uniforme ?? 0}</strong> ·
                 Sem unif.: <strong>${c.sem_uniforme ?? 0}</strong> ·
                 Membros: <strong>${c.membros ?? 0}</strong> ·
-                Total: <strong>${(Number(c.com_uniforme)||0)+(Number(c.sem_uniforme)||0)+(Number(c.membros)||0)}</strong>
+                CPO: <strong>${c.cpo ?? 0}</strong> ·
+                Obr EBI: <strong>${c.obr_ebi ?? 0}</strong> ·
+                Total: <strong>${linhaTotal}</strong>
               </div>
               ${c.observacao ? `<div class="text-xs text-gray-400">${c.observacao}</div>` : ''}
             </div>
@@ -3886,8 +3908,8 @@
               <button type="button" onclick="editarContagem('${c.id}')" class="text-evg-blue text-sm hover:underline">Editar</button>
               ${isGestao ? `<button type="button" onclick="excluirContagem('${c.id}')" class="text-red-600 text-sm hover:underline">Excluir</button>` : ''}
             </div>
-          </div>
-        `).join('');
+          </div>`;
+        }).join('');
         return `
           <div class="bg-white rounded-xl shadow p-4 border-l-4 border-evg-red">
             <div class="font-semibold text-evg-blue">${d.split('-').reverse().join('/')} (${ds}) — total do dia: ${tot}</div>
@@ -3912,7 +3934,7 @@
         ctx.fillText('Sem dados para o gráfico neste filtro.', 12, 40);
         return;
       }
-      const values = datas.map(d => porDia[d].com + porDia[d].sem + porDia[d].mem);
+      const values = datas.map(d => porDia[d].com + porDia[d].sem + porDia[d].mem + (porDia[d].cpo || 0) + (porDia[d].ebi || 0));
       const max = Math.max(...values, 1);
       const barW = Math.min(40, (canvas.width - 40) / datas.length - 6);
       datas.forEach((d, i) => {
@@ -3940,6 +3962,8 @@
       const com = parseInt(document.getElementById('cont-com').value || 0, 10) || 0;
       const sem = parseInt(document.getElementById('cont-sem').value || 0, 10) || 0;
       const membros = parseInt(document.getElementById('cont-membros').value || 0, 10) || 0;
+      const cpo = parseInt(document.getElementById('cont-cpo')?.value || 0, 10) || 0;
+      const obrEbi = parseInt(document.getElementById('cont-obr-ebi')?.value || 0, 10) || 0;
       const obs = (document.getElementById('cont-obs').value || '').trim();
       const editId = (document.getElementById('cont_edit_id')?.value || '').trim();
 
@@ -3955,7 +3979,9 @@
         com_uniforme: com,
         sem_uniforme: sem,
         membros: membros,
-        total: com + sem + membros,
+        cpo: cpo,
+        obr_ebi: obrEbi,
+        total: com + sem + membros + cpo + obrEbi,
         observacao: obs || null,
         registrado_por: usuarioLogado?.nome || null
       };
@@ -3992,6 +4018,10 @@
       document.getElementById('cont-com').value = c.com_uniforme ?? 0;
       document.getElementById('cont-sem').value = c.sem_uniforme ?? 0;
       document.getElementById('cont-membros').value = c.membros ?? 0;
+      const cpoEl = document.getElementById('cont-cpo');
+      if (cpoEl) cpoEl.value = c.cpo ?? 0;
+      const ebiEl = document.getElementById('cont-obr-ebi');
+      if (ebiEl) ebiEl.value = c.obr_ebi ?? 0;
       document.getElementById('cont-obs').value = c.observacao || '';
       atualizarTotalContagem();
       atualizarDiaSemanaContagem();
