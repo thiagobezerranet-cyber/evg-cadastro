@@ -1256,43 +1256,44 @@
           </div>
         </form>
 
-        <!-- Filtros e resumo -->
-        <div class="bg-white rounded-xl shadow p-4 mb-4 max-w-4xl space-y-3">
-          <div class="flex flex-wrap items-end gap-3">
-            <div>
-              <label class="block text-sm font-medium mb-1">Data</label>
-              <input type="date" id="cont-filtro-data" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
+        <!-- Filtros, gráfico e lista — só gestão (escondido no link público) -->
+        <div id="cont-area-gestao">
+          <div class="bg-white rounded-xl shadow p-4 mb-4 max-w-4xl space-y-3">
+            <div class="flex flex-wrap items-end gap-3">
+              <div>
+                <label class="block text-sm font-medium mb-1">Data</label>
+                <input type="date" id="cont-filtro-data" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Dia da semana</label>
+                <select id="cont-filtro-dia" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
+                  <option value="">Todos</option>
+                  <option value="0">Domingo</option>
+                  <option value="1">Segunda</option>
+                  <option value="2">Terça</option>
+                  <option value="3">Quarta</option>
+                  <option value="4">Quinta</option>
+                  <option value="5">Sexta</option>
+                  <option value="6">Sábado</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">De (semana)</label>
+                <input type="date" id="cont-filtro-de" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Até</label>
+                <input type="date" id="cont-filtro-ate" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
+              </div>
+              <button type="button" onclick="limparFiltrosContagem()" class="text-sm text-evg-blue hover:underline">Limpar filtros</button>
             </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Dia da semana</label>
-              <select id="cont-filtro-dia" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
-                <option value="">Todos</option>
-                <option value="0">Domingo</option>
-                <option value="1">Segunda</option>
-                <option value="2">Terça</option>
-                <option value="3">Quarta</option>
-                <option value="4">Quinta</option>
-                <option value="5">Sexta</option>
-                <option value="6">Sábado</option>
-              </select>
+            <div id="cont-resumo" class="text-sm text-gray-700"></div>
+            <div id="cont-grafico-wrap" class="overflow-x-auto">
+              <canvas id="cont-grafico" height="120" class="w-full max-w-3xl"></canvas>
             </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">De (semana)</label>
-              <input type="date" id="cont-filtro-de" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Até</label>
-              <input type="date" id="cont-filtro-ate" class="px-3 py-2 border rounded-lg text-sm" onchange="renderContagem()">
-            </div>
-            <button type="button" onclick="limparFiltrosContagem()" class="text-sm text-evg-blue hover:underline">Limpar filtros</button>
           </div>
-          <div id="cont-resumo" class="text-sm text-gray-700"></div>
-          <div id="cont-grafico-wrap" class="overflow-x-auto">
-            <canvas id="cont-grafico" height="120" class="w-full max-w-3xl"></canvas>
-          </div>
+          <div id="lista-contagem" class="space-y-3 max-w-4xl"></div>
         </div>
-
-        <div id="lista-contagem" class="space-y-3 max-w-4xl"></div>
       </div>
 
       </div><!-- fim padding conteúdo -->
@@ -1623,13 +1624,15 @@
       (async function iniciarModoPublicoContagem() {
         usuarioLogado = { nome: 'Responsável', tipo: 'coordenador', role: 'Link contagem', publico: true };
         esconderChromePublico();
-        try { await carregarContagens(); } catch (e) {}
         limparFormContagem();
         showPage('contagem');
+        // Só o formulário — não mostra filtros, gráfico nem o que já foi preenchido
+        const areaGestao = document.getElementById('cont-area-gestao');
+        if (areaGestao) areaGestao.classList.add('hidden');
         const titulo = document.querySelector('#page-contagem h1');
         if (titulo) titulo.textContent = 'Contagem da reunião';
         const sub = document.querySelector('#page-contagem > p.text-sm');
-        if (sub) sub.textContent = 'Preencha a contagem da sua reunião e envie. Não é necessário login.';
+        if (sub) sub.textContent = 'Preencha os dados da sua reunião e clique em Salvar. Não é necessário login.';
       })();
     } else {
       supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
