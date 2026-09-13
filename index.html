@@ -1352,6 +1352,7 @@
       'Recrutamento',
       'Fome da Palavra'
     ];
+    const DIAS_SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 
     // ===================== ESTADO =====================
     let usuarioLogado = null;
@@ -1621,19 +1622,8 @@
     } else if (MODO_PUBLICO_UNISOCIAL) {
       iniciarModoPublicoUnisocial();
     } else if (MODO_PUBLICO_CONTAGEM) {
-      (async function iniciarModoPublicoContagem() {
-        usuarioLogado = { nome: 'Responsável', tipo: 'coordenador', role: 'Link contagem', publico: true };
-        esconderChromePublico();
-        limparFormContagem();
-        showPage('contagem');
-        // Só o formulário — não mostra filtros, gráfico nem o que já foi preenchido
-        const areaGestao = document.getElementById('cont-area-gestao');
-        if (areaGestao) areaGestao.classList.add('hidden');
-        const titulo = document.querySelector('#page-contagem h1');
-        if (titulo) titulo.textContent = 'Contagem da reunião';
-        const sub = document.querySelector('#page-contagem > p.text-sm');
-        if (sub) sub.textContent = 'Preencha os dados da sua reunião e clique em Salvar. Não é necessário login.';
-      })();
+      // Inicia no final do arquivo (ver iniciarContagemPublicaFinal)
+      window.__abrirContagemPublica = true;
     } else {
       supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
         if (!session) return;
@@ -1666,12 +1656,13 @@
     // ===================== NAVEGAÇÃO =====================
     function showPage(page, isEdit = false) {
       document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-      document.getElementById('page-' + page).classList.remove('hidden');
+      const pageEl = document.getElementById('page-' + page);
+      if (pageEl) pageEl.classList.remove('hidden');
 
       document.querySelectorAll('.sidebar-link').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.page === page);
       });
-      fecharMenuMobile();
+      try { fecharMenuMobile(); } catch (e) {}
 
       if (page === 'voluntarios') renderTabela();
       if (page === 'dashboard') atualizarDashboard();
@@ -3755,8 +3746,6 @@
     }
 
     // ===================== CONTAGEM REUNIÕES =====================
-    const DIAS_SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-
     function atualizarDiaSemanaContagem() {
       const iso = document.getElementById('cont-data')?.value || '';
       const el = document.getElementById('cont-dia-semana');
@@ -4046,6 +4035,59 @@
       await carregarContagens();
       renderContagem();
     }
+
+    // Abre link público da contagem (?contagem=1) — só formulário
+    (function abrirContagemPublicaSePreciso() {
+      if (!window.__abrirContagemPublica && !MODO_PUBLICO_CONTAGEM) return;
+      try {
+        usuarioLogado = { nome: 'Responsável', tipo: 'coordenador', role: 'Link contagem', publico: true };
+        const login = document.getElementById('login-screen');
+        const app = document.getElementById('app');
+        if (login) login.classList.add('hidden');
+        if (app) {
+          app.classList.remove('hidden');
+          app.style.display = 'flex';
+        }
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) sidebar.classList.add('hidden');
+        document.querySelectorAll('main > div').forEach(el => {
+          if (el.className && String(el.className).includes('md:hidden') && String(el.className).includes('sticky')) {
+            el.classList.add('hidden');
+          }
+        });
+        const main = document.querySelector('main');
+        if (main) {
+          main.classList.remove('md:ml-64');
+          main.classList.add('ml-0');
+          main.style.marginLeft = '0';
+        }
+        document.querySelectorAll('.page').forEach(p => {
+          p.classList.add('hidden');
+          p.style.display = 'none';
+        });
+        const page = document.getElementById('page-contagem');
+        if (page) {
+          page.classList.remove('hidden');
+          page.style.display = 'block';
+        }
+        const areaGestao = document.getElementById('cont-area-gestao');
+        if (areaGestao) {
+          areaGestao.classList.add('hidden');
+          areaGestao.style.display = 'none';
+        }
+        if (typeof limparFormContagem === 'function') limparFormContagem();
+        const titulo = document.querySelector('#page-contagem h1');
+        if (titulo) titulo.textContent = 'Contagem da reunião';
+        const sub = document.querySelector('#page-contagem > p.text-sm');
+        if (sub) sub.textContent = 'Preencha os dados da sua reunião e clique em Salvar. Não é necessário login.';
+        // Garante formulário visível
+        const form = document.getElementById('form-contagem');
+        if (form) form.style.display = 'block';
+      } catch (err) {
+        console.error('Erro contagem pública:', err);
+        try { alert('Erro ao abrir contagem: ' + err.message); } catch (e) {}
+      }
+    })();
   </script>
 </body>
 </html>
