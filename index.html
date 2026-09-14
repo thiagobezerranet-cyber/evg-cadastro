@@ -875,6 +875,20 @@
               </div>
             </div>
 
+            <div id="extras-ponto-fe" class="hidden mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+              <p class="text-sm font-semibold text-evg-blue mb-3">Ponto de fé — quais dias foram feitos?</p>
+              <p class="text-xs text-gray-600 mb-3">Marque os dias da semana em que o Ponto de fé aconteceu neste período.</p>
+              <div class="flex flex-wrap gap-3 text-sm">
+                <label class="inline-flex items-center gap-2 bg-white px-3 py-2 rounded-lg border"><input type="checkbox" class="rel-ponto-dia rounded" value="Segunda"> Segunda</label>
+                <label class="inline-flex items-center gap-2 bg-white px-3 py-2 rounded-lg border"><input type="checkbox" class="rel-ponto-dia rounded" value="Terça"> Terça</label>
+                <label class="inline-flex items-center gap-2 bg-white px-3 py-2 rounded-lg border"><input type="checkbox" class="rel-ponto-dia rounded" value="Quarta"> Quarta</label>
+                <label class="inline-flex items-center gap-2 bg-white px-3 py-2 rounded-lg border"><input type="checkbox" class="rel-ponto-dia rounded" value="Quinta"> Quinta</label>
+                <label class="inline-flex items-center gap-2 bg-white px-3 py-2 rounded-lg border"><input type="checkbox" class="rel-ponto-dia rounded" value="Sexta"> Sexta</label>
+                <label class="inline-flex items-center gap-2 bg-white px-3 py-2 rounded-lg border"><input type="checkbox" class="rel-ponto-dia rounded" value="Sábado"> Sábado</label>
+                <label class="inline-flex items-center gap-2 bg-white px-3 py-2 rounded-lg border"><input type="checkbox" class="rel-ponto-dia rounded" value="Domingo"> Domingo</label>
+              </div>
+            </div>
+
             <div class="mt-4">
               <label class="block text-sm font-medium mb-1">Quais voluntários estavam no projeto, ajudando?</label>
               <p class="text-xs text-gray-500 mb-2">Digite para buscar e toque/clique no nome para adicionar. Pode adicionar vários.</p>
@@ -943,6 +957,7 @@
         </div>
 
         <form id="form-almas" class="bg-white rounded-xl shadow p-6 space-y-6 max-w-3xl mb-8">
+          <input type="hidden" id="almas_edit_id" value="">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block text-sm font-medium mb-1">Data do evento *</label>
@@ -987,7 +1002,7 @@
             <div class="text-lg font-semibold text-evg-blue">
               Total de almas: <span id="almas-total">0</span>
             </div>
-            <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
+            <button type="submit" id="almas-btn-salvar" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
               Salvar registro
             </button>
           </div>
@@ -2481,7 +2496,8 @@
         'Unisocial': 'extras-unisocial',
         'Fome da Palavra': 'extras-fome-palavra',
         'Guardiões da estrada': 'extras-guardioes',
-        'Anjos da Madrugada': 'extras-anjos'
+        'Anjos da Madrugada': 'extras-anjos',
+        'Ponto de fé': 'extras-ponto-fe'
       };
       // Esconde todos
       Object.values(map).forEach(id => {
@@ -2612,6 +2628,7 @@
         cobertores: num('rel_cobertores'),
         agasalhos: num('rel_agasalhos'),
         voluntarios: [...relVolSelecionados],
+        dias_ponto_fe: Array.from(document.querySelectorAll('.rel-ponto-dia:checked')).map(c => c.value),
         melhorar: document.getElementById('rel_melhorar').value.trim(),
         ideias: document.getElementById('rel_ideias').value.trim(),
         precisam: document.getElementById('rel_precisam').value.trim()
@@ -2723,6 +2740,7 @@
             ${r.agasalhos != null ? `<span class="bg-amber-50 text-amber-800 px-3 py-1 rounded-full"><strong>Agasalhos:</strong> ${r.agasalhos}</span>` : ''}
           </div>
           <p class="text-sm mb-2"><strong>Voluntários que ajudaram:</strong> ${(r.voluntarios || []).join(', ') || '—'}</p>
+          ${(r.dias_ponto_fe && r.dias_ponto_fe.length) ? `<p class="text-sm mb-2"><strong>Ponto de fé — dias:</strong> ${r.dias_ponto_fe.join(', ')}</p>` : ''}
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm mt-3">
             <div class="bg-gray-50 rounded-lg p-3">
               <div class="font-medium text-evg-blue mb-1">O que melhorar</div>
@@ -2772,6 +2790,10 @@
       relVolSelecionados = Array.isArray(r.voluntarios) ? [...r.voluntarios] : [];
       renderVolSelecionados();
       atualizarCamposExtrasGrupo();
+      const diasPf = Array.isArray(r.dias_ponto_fe) ? r.dias_ponto_fe : [];
+      document.querySelectorAll('.rel-ponto-dia').forEach(cb => {
+        cb.checked = diasPf.includes(cb.value);
+      });
       const btn = document.querySelector('#form-relatorio-grupo button[type="submit"]');
       if (btn) btn.textContent = 'Atualizar Relatório';
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2838,6 +2860,8 @@
 
     // ===================== ALMAS / DOMINGO =====================
     function initFormAlmas() {
+      const editId = document.getElementById('almas_edit_id');
+      if (editId) editId.value = '';
       const dataEl = document.getElementById('almas-data');
       if (dataEl && !dataEl.value) {
         const hoje = new Date();
@@ -2849,6 +2873,8 @@
         almasAddLinha();
       }
       almasRecalcTotal();
+      const btn = document.getElementById('almas-btn-salvar');
+      if (btn) btn.textContent = 'Salvar registro';
       const ok = document.getElementById('almas-sucesso');
       if (ok) ok.classList.add('hidden');
     }
@@ -2939,6 +2965,7 @@
       }
 
       const mes = dataEvento.slice(0, 7);
+      const editId = (document.getElementById('almas_edit_id')?.value || '').trim();
       const registro = {
         data_evento: dataEvento,
         tipo: tipo || 'Domingo',
@@ -2949,7 +2976,12 @@
         registrado_por: usuarioLogado?.nome || null
       };
 
-      const { error } = await supabaseClient.from('almas_eventos').insert([registro]);
+      let error;
+      if (editId) {
+        ({ error } = await supabaseClient.from('almas_eventos').update(registro).eq('id', editId));
+      } else {
+        ({ error } = await supabaseClient.from('almas_eventos').insert([registro]));
+      }
       if (error) {
         alert('Erro ao salvar: ' + error.message + '\n\nSe a tabela ainda não existe, rode o SQL que eu te enviei no Supabase.');
         return;
@@ -2964,10 +2996,12 @@
       const okBox = document.getElementById('almas-sucesso');
       if (okBox) {
         okBox.classList.remove('hidden');
+        const p = okBox.querySelector('p');
+        if (p) p.textContent = editId ? '✅ Registro atualizado com sucesso!' : '✅ Registro salvo com sucesso!';
         okBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(() => okBox.classList.add('hidden'), 10000);
       }
-      try { alert('Registro de almas salvo! Total: ' + total); } catch (err) {}
+      try { alert(editId ? 'Registro de almas atualizado! Total: ' + total : 'Registro de almas salvo! Total: ' + total); } catch (err) {}
     });
 
     function renderAlmasHistorico() {
@@ -3027,8 +3061,9 @@
                 <div class="text-xs text-gray-400">${mesLabel(r.mes || '')}${r.registrado_por ? ' • por ' + r.registrado_por : ''}</div>
                 ${r.observacao ? `<div class="text-sm text-gray-600 mt-1">${r.observacao}</div>` : ''}
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <span class="bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">Total: ${r.total ?? 0}</span>
+                <button type="button" onclick="editarAlmas('${r.id}')" class="text-evg-blue text-sm hover:underline">Editar</button>
                 <button type="button" onclick="excluirAlmas('${r.id}')" class="text-red-600 text-sm hover:underline">Excluir</button>
               </div>
             </div>
@@ -3036,6 +3071,30 @@
           </div>
         `;
       }).join('');
+    }
+
+    function editarAlmas(id) {
+      const r = almasRegistros.find(x => x.id === id);
+      if (!r) {
+        alert('Registro não encontrado.');
+        return;
+      }
+      document.getElementById('almas_edit_id').value = r.id;
+      document.getElementById('almas-data').value = r.data_evento ? String(r.data_evento).slice(0, 10) : '';
+      document.getElementById('almas-tipo').value = r.tipo || 'Domingo';
+      document.getElementById('almas-obs').value = r.observacao || '';
+      const tbody = document.getElementById('almas-linhas');
+      if (tbody) tbody.innerHTML = '';
+      const itens = Array.isArray(r.itens) ? r.itens : [];
+      if (itens.length === 0) {
+        almasAddLinha();
+      } else {
+        itens.forEach(i => almasAddLinha(i.nome || '', i.quantidade != null ? i.quantidade : ''));
+      }
+      almasRecalcTotal();
+      const btn = document.getElementById('almas-btn-salvar');
+      if (btn) btn.textContent = 'Atualizar registro';
+      document.getElementById('form-almas').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     async function excluirAlmas(id) {
