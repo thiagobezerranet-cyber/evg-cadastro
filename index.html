@@ -625,6 +625,7 @@
 
           <form id="form-atendimento" class="bg-white rounded-xl shadow p-6 space-y-6">
             <input type="hidden" id="atend-voluntario-id">
+            <input type="hidden" id="atend_edit_id" value="">
 
             <div>
               <label class="block text-sm font-medium mb-1">1. Você teve encontro com Deus?</label>
@@ -744,9 +745,12 @@
               <textarea id="perg12" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Resposta..."></textarea>
             </div>
 
-            <div class="pt-2">
-              <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
+            <div class="pt-2 flex flex-wrap gap-2">
+              <button type="submit" id="atend-btn-salvar" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">
                 Salvar Atendimento
+              </button>
+              <button type="button" onclick="cancelarEdicaoAtendimento()" id="atend-btn-cancelar" class="hidden text-sm text-gray-600 hover:underline px-3 py-2">
+                Cancelar edição
               </button>
             </div>
           </form>
@@ -1241,10 +1245,12 @@
             <div>
               <label class="block text-sm font-medium mb-1">② Obreiros sem uniforme *</label>
               <input type="number" id="cont-sem" min="0" required value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+              <p class="text-xs text-gray-500 mt-1">Já estão no meio do povo — não entram de novo no total.</p>
             </div>
             <div>
               <label class="block text-sm font-medium mb-1">③ Membros (povo) *</label>
               <input type="number" id="cont-membros" min="0" required value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+              <p class="text-xs text-gray-500 mt-1">Contagem do povo (já inclui os sem uniforme).</p>
             </div>
             <div>
               <label class="block text-sm font-medium mb-1">④ CPO</label>
@@ -1257,8 +1263,9 @@
               <p class="text-xs text-gray-500 mt-1">Obreiras na EBI nesta reunião.</p>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">Total da reunião (1+2+3+4+5)</label>
+              <label class="block text-sm font-medium mb-1">Total da reunião</label>
               <input type="text" id="cont-total-preview" readonly class="w-full px-3 py-2 border-2 border-evg-blue rounded-lg text-sm bg-evg-light font-bold text-evg-blue" value="0">
+              <p class="text-xs text-gray-500 mt-1">Soma: com uniforme + membros + CPO + EBI (sem uniforme não entra de novo).</p>
             </div>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium mb-1">Observação</label>
@@ -2196,7 +2203,7 @@
 
       const contHoje = (typeof contagens !== 'undefined' ? contagens : [])
         .filter(c => String(c.data_reuniao).slice(0, 10) === hoje)
-        .reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0) + (Number(c.cpo)||0) + (Number(c.obr_ebi)||0), 0);
+        .reduce((t, c) => t + totalContagemCalc(c.com_uniforme, c.sem_uniforme, c.membros, c.cpo, c.obr_ebi), 0);
 
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
       set('stat-total', voluntarios.length);
@@ -2224,7 +2231,7 @@
           const iso = d.toISOString().slice(0, 10);
           const tot = (contagens || [])
             .filter(c => String(c.data_reuniao).slice(0, 10) === iso)
-            .reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0) + (Number(c.cpo)||0) + (Number(c.obr_ebi)||0), 0);
+            .reduce((t, c) => t + totalContagemCalc(c.com_uniforme, c.sem_uniforme, c.membros, c.cpo, c.obr_ebi), 0);
           dias.push({ iso, tot, label: iso.slice(8) + '/' + iso.slice(5, 7) });
         }
         const max = Math.max(...dias.map(d => d.tot), 1);
@@ -2365,15 +2372,29 @@
         document.getElementById('atend-foto').innerHTML = 'Foto';
       }
 
-      // Limpa formulário
+      // Limpa formulário (novo atendimento)
       document.getElementById('form-atendimento').reset();
       document.getElementById('atend-voluntario-id').value = id;
+      document.getElementById('atend_edit_id').value = '';
+      const btnSalvar = document.getElementById('atend-btn-salvar');
+      if (btnSalvar) btnSalvar.textContent = 'Salvar Atendimento';
+      const btnCancel = document.getElementById('atend-btn-cancelar');
+      if (btnCancel) btnCancel.classList.add('hidden');
 
       document.getElementById('painel-atendimento').classList.remove('hidden');
       document.getElementById('resultados-atendimento').innerHTML = '';
       document.getElementById('busca-atendimento').value = v.nome;
 
       carregarHistorico(id);
+    }
+
+    function cancelarEdicaoAtendimento() {
+      const id = document.getElementById('atend-voluntario-id').value;
+      document.getElementById('form-atendimento').reset();
+      document.getElementById('atend-voluntario-id').value = id;
+      document.getElementById('atend_edit_id').value = '';
+      document.getElementById('atend-btn-salvar').textContent = 'Salvar Atendimento';
+      document.getElementById('atend-btn-cancelar').classList.add('hidden');
     }
 
     function carregarHistorico(id) {
@@ -2391,7 +2412,10 @@
         const obreiroNome = a.perg_obreiro || a.perg11_obreiro || '';
         return `
         <div class="bg-gray-50 rounded-lg p-4 text-sm border space-y-1">
-          <div class="font-medium text-evg-blue mb-2">${new Date(a.data).toLocaleString('pt-BR')}</div>
+          <div class="flex flex-wrap justify-between gap-2 mb-2">
+            <div class="font-medium text-evg-blue">${new Date(a.data).toLocaleString('pt-BR')}</div>
+            <button type="button" onclick="editarAtendimento('${a.id}')" class="text-evg-blue text-sm hover:underline">Editar</button>
+          </div>
           <p><strong>1. Encontro com Deus:</strong> ${a.perg1 || '—'}</p>
           <p><strong>2. Espírito Santo:</strong> ${a.perg2 || '—'}</p>
           <p><strong>3. Jejum:</strong> ${a.perg3 || '—'}</p>
@@ -2410,10 +2434,60 @@
       }).join('');
     }
 
+    function editarAtendimento(atendId) {
+      const a = atendimentos.find(x => x.id === atendId);
+      if (!a) {
+        alert('Atendimento não encontrado.');
+        return;
+      }
+      document.getElementById('atend_edit_id').value = a.id;
+      document.getElementById('atend-voluntario-id').value = a.voluntario_id;
+      document.getElementById('perg1').value = a.perg1 || '';
+      document.getElementById('perg2').value = a.perg2 || '';
+      document.getElementById('perg3').value = a.perg3 || '';
+      document.getElementById('perg4').value = a.perg4 || '';
+      document.getElementById('perg5').value = a.perg5 || '';
+      document.getElementById('perg6').value = a.perg6 || '';
+      document.getElementById('perg7').value = a.perg7 || '';
+      document.getElementById('perg8').value = a.perg8 || '';
+      document.getElementById('perg_obreiro').value = a.perg_obreiro || a.perg11_obreiro || '';
+      document.getElementById('perg9').value = a.perg9 || '';
+      document.getElementById('perg10').value = a.perg10 || '';
+      document.getElementById('perg11').value = a.perg11 || '';
+      document.getElementById('perg12').value = a.perg12 || '';
+
+      // Dias da semana
+      const mapDia = {
+        'segunda': 'seg', 'terça': 'ter', 'terca': 'ter', 'quarta': 'qua',
+        'quinta': 'qui', 'sexta': 'sex', 'sábado': 'sab', 'sabado': 'sab', 'domingo': 'dom'
+      };
+      ['seg','ter','qua','qui','sex','sab','dom'].forEach(d => {
+        const cb = document.getElementById('dia_' + d);
+        const hr = document.getElementById('hora_' + d);
+        if (cb) cb.checked = false;
+        if (hr) hr.value = '';
+      });
+      (a.dias || []).forEach(txt => {
+        const parts = String(txt).trim().split(/\s+/);
+        const nome = (parts[0] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const key = mapDia[nome] || mapDia[(parts[0] || '').toLowerCase()];
+        if (!key) return;
+        const cb = document.getElementById('dia_' + key);
+        const hr = document.getElementById('hora_' + key);
+        if (cb) cb.checked = true;
+        if (hr && parts[1]) hr.value = parts[1];
+      });
+
+      document.getElementById('atend-btn-salvar').textContent = 'Atualizar Atendimento';
+      document.getElementById('atend-btn-cancelar').classList.remove('hidden');
+      document.getElementById('form-atendimento').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     document.getElementById('form-atendimento').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('atend-voluntario-id').value;
       if (!id) return;
+      const editId = (document.getElementById('atend_edit_id')?.value || '').trim();
 
       const dias = [];
       ['seg','ter','qua','qui','sex','sab','dom'].forEach(d => {
@@ -2443,17 +2517,25 @@
         registrado_por: usuarioLogado.nome
       };
 
-      const { error } = await supabaseClient.from('atendimentos').insert([registro]);
+      let error;
+      if (editId) {
+        ({ error } = await supabaseClient.from('atendimentos').update(registro).eq('id', editId));
+      } else {
+        ({ error } = await supabaseClient.from('atendimentos').insert([registro]));
+      }
       if (error) {
         alert('Erro ao salvar atendimento: ' + error.message);
         return;
       }
 
       await carregarAtendimentos();
-      alert('Atendimento salvo com sucesso!');
+      alert(editId ? 'Atendimento atualizado!' : 'Atendimento salvo com sucesso!');
       carregarHistorico(id);
       document.getElementById('form-atendimento').reset();
       document.getElementById('atend-voluntario-id').value = id;
+      document.getElementById('atend_edit_id').value = '';
+      document.getElementById('atend-btn-salvar').textContent = 'Salvar Atendimento';
+      document.getElementById('atend-btn-cancelar').classList.add('hidden');
     });
 
     // ===================== RELATÓRIOS DE GRUPOS =====================
@@ -3818,6 +3900,11 @@
       el.textContent = nome ? ('Dia da semana: ' + nome) : '—';
     }
 
+    function totalContagemCalc(com, sem, membros, cpo, ebi) {
+      // Sem uniforme já está no povo (membros) — não soma de novo
+      return (Number(com) || 0) + (Number(membros) || 0) + (Number(cpo) || 0) + (Number(ebi) || 0);
+    }
+
     function atualizarTotalContagem() {
       const c = parseInt(document.getElementById('cont-com')?.value || 0, 10) || 0;
       const s = parseInt(document.getElementById('cont-sem')?.value || 0, 10) || 0;
@@ -3825,7 +3912,7 @@
       const cpo = parseInt(document.getElementById('cont-cpo')?.value || 0, 10) || 0;
       const ebi = parseInt(document.getElementById('cont-obr-ebi')?.value || 0, 10) || 0;
       const el = document.getElementById('cont-total-preview');
-      if (el) el.value = String(c + s + m + cpo + ebi);
+      if (el) el.value = String(totalContagemCalc(c, s, m, cpo, ebi));
     }
 
     function limparFormContagem() {
@@ -3895,7 +3982,8 @@
       const totalMem = sum(lista, 'membros');
       const totalCpo = sum(lista, 'cpo');
       const totalEbi = sum(lista, 'obr_ebi');
-      const totalGeral = totalCom + totalSem + totalMem + totalCpo + totalEbi;
+      // Sem uniforme não entra de novo no total (já está no povo)
+      const totalGeral = totalCom + totalMem + totalCpo + totalEbi;
 
       // Totais por dia
       const porDia = {};
@@ -3944,10 +4032,10 @@
 
       container.innerHTML = datas.map(d => {
         const items = grupos[d];
-        const tot = items.reduce((t, c) => t + (Number(c.com_uniforme)||0) + (Number(c.sem_uniforme)||0) + (Number(c.membros)||0) + (Number(c.cpo)||0) + (Number(c.obr_ebi)||0), 0);
+        const tot = items.reduce((t, c) => t + totalContagemCalc(c.com_uniforme, c.sem_uniforme, c.membros, c.cpo, c.obr_ebi), 0);
         const ds = DIAS_SEMANA[diaSemanaISO(d)] || '';
         const rows = items.map(c => {
-          const linhaTotal = (Number(c.com_uniforme)||0)+(Number(c.sem_uniforme)||0)+(Number(c.membros)||0)+(Number(c.cpo)||0)+(Number(c.obr_ebi)||0);
+          const linhaTotal = totalContagemCalc(c.com_uniforme, c.sem_uniforme, c.membros, c.cpo, c.obr_ebi);
           return `
           <div class="border-t border-gray-100 py-2 flex flex-wrap justify-between gap-2 text-sm">
             <div>
@@ -3989,7 +4077,7 @@
         ctx.fillText('Sem dados para o gráfico neste filtro.', 12, 40);
         return;
       }
-      const values = datas.map(d => porDia[d].com + porDia[d].sem + porDia[d].mem + (porDia[d].cpo || 0) + (porDia[d].ebi || 0));
+      const values = datas.map(d => porDia[d].com + porDia[d].mem + (porDia[d].cpo || 0) + (porDia[d].ebi || 0));
       const max = Math.max(...values, 1);
       const barW = Math.min(40, (canvas.width - 40) / datas.length - 6);
       datas.forEach((d, i) => {
@@ -4006,7 +4094,7 @@
       });
       ctx.fillStyle = '#374151';
       ctx.font = '11px sans-serif';
-      ctx.fillText('Total por dia (uniforme + membros)', 8, 14);
+      ctx.fillText('Total por dia (sem uniforme não soma de novo)', 8, 14);
     }
 
     document.getElementById('form-contagem')?.addEventListener('submit', async (e) => {
@@ -4036,7 +4124,7 @@
         membros: membros,
         cpo: cpo,
         obr_ebi: obrEbi,
-        total: com + sem + membros + cpo + obrEbi,
+        total: totalContagemCalc(com, sem, membros, cpo, obrEbi),
         observacao: obs || null,
         registrado_por: usuarioLogado?.nome || null
       };
