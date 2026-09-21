@@ -304,13 +304,24 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs text-gray-500 mb-1">Semana</label>
-            <input type="week" id="part-semana" class="px-3 py-2 border rounded-lg text-sm" onchange="renderParticipacoes()">
+            <label class="block text-xs text-gray-500 mb-1">De</label>
+            <input type="date" id="part-de" class="px-3 py-2 border rounded-lg text-sm" onchange="renderParticipacoes()">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Até</label>
+            <input type="date" id="part-ate" class="px-3 py-2 border rounded-lg text-sm" onchange="renderParticipacoes()">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Mostrar</label>
+            <select id="part-modo" class="px-3 py-2 border rounded-lg text-sm" onchange="renderParticipacoes()">
+              <option value="participaram">Quem participou</option>
+              <option value="nao_participaram">Quem NÃO participou</option>
+            </select>
           </div>
           <button type="button" onclick="limparFiltrosParticipacoes()" class="text-sm text-evg-blue hover:underline px-2">Limpar filtros</button>
         </div>
         <div id="part-resumo" class="text-sm text-gray-600 mb-3"></div>
-        <div class="bg-white rounded-xl shadow overflow-x-auto">
+        <div id="part-tabela-wrap" class="bg-white rounded-xl shadow overflow-x-auto">
           <table class="min-w-full text-sm">
             <thead class="bg-gray-50 sticky top-0">
               <tr id="part-thead-row">
@@ -321,6 +332,7 @@
           </table>
           <div id="part-vazio" class="hidden p-8 text-center text-gray-500">Nenhuma participação neste filtro.</div>
         </div>
+        <div id="part-sem-lista" class="hidden bg-white rounded-xl shadow p-4 space-y-2"></div>
       </div>
 
       <!-- NOVO / EDITAR CADASTRO -->
@@ -4360,11 +4372,20 @@
     function limparFiltrosParticipacoes() {
       const b = document.getElementById('part-busca');
       const m = document.getElementById('part-mes');
-      const s = document.getElementById('part-semana');
+      const de = document.getElementById('part-de');
+      const ate = document.getElementById('part-ate');
+      const modo = document.getElementById('part-modo');
       if (b) b.value = '';
       if (m) m.value = '';
-      if (s) s.value = '';
+      if (de) de.value = '';
+      if (ate) ate.value = '';
+      if (modo) modo.value = 'participaram';
       renderParticipacoes();
+    }
+
+    function partDataRelatorio(r) {
+      return r.data_evento ? String(r.data_evento).slice(0, 10)
+        : (r.data ? String(r.data).slice(0, 10) : (r.created_at ? String(r.created_at).slice(0, 10) : ''));
     }
 
     function renderParticipacoes() {
@@ -4372,11 +4393,15 @@
       const tbody = document.getElementById('part-tbody');
       const vazio = document.getElementById('part-vazio');
       const resumo = document.getElementById('part-resumo');
+      const tabelaWrap = document.getElementById('part-tabela-wrap');
+      const semLista = document.getElementById('part-sem-lista');
       if (!theadRow || !tbody) return;
 
       const busca = (document.getElementById('part-busca')?.value || '').toLowerCase().trim();
       const filtroMes = document.getElementById('part-mes')?.value || '';
-      const filtroSemana = document.getElementById('part-semana')?.value || '';
+      const filtroDe = document.getElementById('part-de')?.value || '';
+      const filtroAte = document.getElementById('part-ate')?.value || '';
+      const modo = document.getElementById('part-modo')?.value || 'participaram';
 
       // Preenche opções de mês a partir dos relatórios
       const selMes = document.getElementById('part-mes');
@@ -4385,10 +4410,14 @@
         const meses = [...new Set(
           (relatoriosGrupos || []).map(r => r.mes || (r.data_evento ? String(r.data_evento).slice(0, 7) : '')).filter(Boolean)
         )].sort().reverse();
+        // inclui mês atual se ainda não tiver relatório
+        const agora = new Date();
+        const mesAgora = agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0');
+        if (!meses.includes(mesAgora)) meses.unshift(mesAgora);
         selMes.innerHTML = '<option value="">Todos</option>' + meses.map(m =>
           `<option value="${m}">${typeof mesLabel === 'function' ? mesLabel(m) : m}</option>`
         ).join('');
-        if (meses.includes(atual)) selMes.value = atual;
+        if (meses.includes(atual) || atual === '') selMes.value = atual;
       }
 
       // Colunas: projetos que aparecem e não estão excluídos (+ ordem fixa preferencial)
@@ -4420,19 +4449,21 @@
 
       // matriz: chaveNome -> { display, variants, grupos: { gk: Set datas } }
       const matriz = {};
+      const chavesQueParticiparam = new Set();
       let relsFiltrados = 0;
       (relatoriosGrupos || []).forEach(r => {
         const grupo = (r.grupo || '').trim();
         if (!grupo || partExcluido(grupo)) return;
-        const dataIso = r.data_evento ? String(r.data_evento).slice(0, 10)
-          : (r.data ? String(r.data).slice(0, 10) : (r.created_at ? String(r.created_at).slice(0, 10) : ''));
+        const dataIso = partDataRelatorio(r);
         const mes = r.mes || (dataIso ? dataIso.slice(0, 7) : '');
         if (filtroMes && mes !== filtroMes) return;
-        if (filtroSemana && isoParaSemana(dataIso) !== filtroSemana) return;
+        if (filtroDe && dataIso && dataIso < filtroDe) return;
+        if (filtroAte && dataIso && dataIso > filtroAte) return;
         relsFiltrados++;
         partListaVoluntarios(r).forEach(nomeRaw => {
           const chave = partNomeChave(nomeRaw);
           if (!chave) return;
+          chavesQueParticiparam.add(chave);
           if (busca && !chave.includes(partNorm(busca)) && !String(nomeRaw).toLowerCase().includes(busca)) return;
           if (!matriz[chave]) {
             matriz[chave] = {
@@ -4442,7 +4473,6 @@
             };
           }
           matriz[chave].variants.add(String(nomeRaw).trim());
-          // Atualiza display se achar no cadastro
           const vol = (voluntarios || []).find(v => partNomeChave(v.nome) === chave);
           if (vol && vol.nome) matriz[chave].display = vol.nome;
           const gk = partNorm(grupo);
@@ -4451,6 +4481,55 @@
           else matriz[chave].grupos[gk].add('—');
         });
       });
+
+      // ----- MODO: quem NÃO participou -----
+      if (modo === 'nao_participaram') {
+        if (tabelaWrap) tabelaWrap.classList.add('hidden');
+        if (semLista) semLista.classList.remove('hidden');
+        // Quem conta como "cadastrado ativo" na EVG
+        let listaSem = (voluntarios || [])
+          .filter(v => v && v.nome && isAtivo(v))
+          .filter(v => !chavesQueParticiparam.has(partNomeChave(v.nome)));
+        if (busca) {
+          listaSem = listaSem.filter(v =>
+            (v.nome || '').toLowerCase().includes(busca) ||
+            partNomeChave(v.nome).includes(partNorm(busca))
+          );
+        }
+        listaSem.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+        const periodoTxt = filtroMes
+          ? (typeof mesLabel === 'function' ? mesLabel(filtroMes) : filtroMes)
+          : (filtroDe || filtroAte)
+            ? `${filtroDe ? formatDataCurta(filtroDe) : '…'} a ${filtroAte ? formatDataCurta(filtroAte) : '…'}`
+            : 'todo o período';
+        if (resumo) {
+          resumo.innerHTML = `<strong>${listaSem.length}</strong> voluntário(s) <span class="text-red-600 font-medium">sem participação</span> em relatórios (${periodoTxt}) · ${relsFiltrados} relatório(s) no filtro`;
+        }
+        if (listaSem.length === 0) {
+          if (semLista) semLista.innerHTML = '<p class="text-gray-500 p-4">Todos os voluntários ativos apareceram em algum relatório neste filtro.</p>';
+          return;
+        }
+        if (semLista) {
+          semLista.innerHTML = `
+            <p class="text-sm text-gray-500 mb-2">Voluntários ativos que <strong>não</strong> foram marcados em nenhum relatório do filtro:</p>
+            <ul class="divide-y divide-gray-100">
+              ${listaSem.map(v => `
+                <li class="px-3 py-2 flex flex-wrap justify-between gap-2 text-sm">
+                  <span class="font-medium text-gray-800">${v.nome}</span>
+                  <span class="text-gray-400 text-xs">${v.projeto_principal || v.funcao_evg || ''}</span>
+                </li>
+              `).join('')}
+            </ul>`;
+        }
+        return;
+      }
+
+      // ----- MODO: quem participou (matriz) -----
+      if (tabelaWrap) tabelaWrap.classList.remove('hidden');
+      if (semLista) {
+        semLista.classList.add('hidden');
+        semLista.innerHTML = '';
+      }
 
       let chaves = Object.keys(matriz).sort((a, b) =>
         matriz[a].display.localeCompare(matriz[b].display, 'pt-BR')
@@ -4465,7 +4544,7 @@
 
       if (resumo) {
         resumo.innerHTML = `<strong>${chaves.length}</strong> voluntário(s) · <strong>${relsFiltrados}</strong> relatório(s) no filtro
-          <span class="text-xs text-gray-400 ml-2">(Obr + maiúsculas/minúsculas são unificados · Thiago ≠ Tiago)</span>`;
+          <span class="text-xs text-gray-400 ml-2">(Obr + maiúsculas/minúsculas unificados · Thiago ≠ Tiago)</span>`;
       }
 
       if (chaves.length === 0) {
