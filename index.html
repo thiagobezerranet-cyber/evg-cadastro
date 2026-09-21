@@ -103,6 +103,10 @@
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>👥</span> Voluntários
           </button>
+          <button onclick="showPage('participacoes')" data-page="participacoes"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>📊</span> Participações
+          </button>
           <button onclick="showPage('novo')" data-page="novo"
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>➕</span> Novo Cadastro
@@ -279,6 +283,43 @@
             </table>
           </div>
           <div id="sem-resultados" class="hidden p-8 text-center text-gray-500">Nenhum voluntário encontrado.</div>
+        </div>
+      </div>
+
+      <!-- PARTICIPAÇÕES (matriz voluntário × projeto) -->
+      <div id="page-participacoes" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Participações</h1>
+        <p class="text-sm text-gray-500 mb-4">Quem foi em cada trabalho, conforme os relatórios dos coordenadores.</p>
+
+        <div class="bg-white rounded-xl shadow p-4 mb-4 flex flex-wrap gap-3 items-end">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Buscar nome</label>
+            <input type="text" id="part-busca" class="px-3 py-2 border rounded-lg text-sm min-w-[180px]"
+                   placeholder="Nome..." oninput="renderParticipacoes()">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Mês</label>
+            <select id="part-mes" class="px-3 py-2 border rounded-lg text-sm" onchange="renderParticipacoes()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Semana</label>
+            <input type="week" id="part-semana" class="px-3 py-2 border rounded-lg text-sm" onchange="renderParticipacoes()">
+          </div>
+          <button type="button" onclick="limparFiltrosParticipacoes()" class="text-sm text-evg-blue hover:underline px-2">Limpar filtros</button>
+        </div>
+        <div id="part-resumo" class="text-sm text-gray-600 mb-3"></div>
+        <div class="bg-white rounded-xl shadow overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-50 sticky top-0">
+              <tr id="part-thead-row">
+                <th class="text-left px-3 py-3 font-semibold text-evg-blue whitespace-nowrap">Nome</th>
+              </tr>
+            </thead>
+            <tbody id="part-tbody" class="divide-y divide-gray-100"></tbody>
+          </table>
+          <div id="part-vazio" class="hidden p-8 text-center text-gray-500">Nenhuma participação neste filtro.</div>
         </div>
       </div>
 
@@ -1736,6 +1777,9 @@
           const el = document.getElementById(id);
           if (el) el.oninput = atualizarTotalContagem;
         });
+      }
+      if (page === 'participacoes') {
+        renderParticipacoes();
       }
     }
 
@@ -4181,6 +4225,195 @@
       }
       await carregarContagens();
       renderContagem();
+    }
+
+    // ===================== PARTICIPAÇÕES =====================
+    const PART_EXCLUIDOS = [
+      'fome da palavra',
+      'recrutamento',
+      'mercado solidário',
+      'mercado solidario',
+      'evg sobre trilhos',
+      'evg nos trilhos',
+      'evg night',
+      'evg digital',
+      'secretária',
+      'secretaria'
+    ];
+
+    const PART_ABREV = {
+      'ponto de fé': 'P. Fé',
+      'ponto de fe': 'P. Fé',
+      'ponto de oração': 'P. Oração',
+      'ponto de oracao': 'P. Oração',
+      'guardiões da estrada': 'Guardiões',
+      'guardioes da estrada': 'Guardiões',
+      'anjos da madrugada': 'Anjos',
+      'bom samaritano': 'Bom Sam.',
+      'consolador': 'Consolador',
+      'evg ao pé da cruz': 'Pé da cruz',
+      'evg ao pe da cruz': 'Pé da cruz',
+      'núcleo no lar': 'Núcleo lar',
+      'nucleo no lar': 'Núcleo lar',
+      'unisocial': 'Unisocial'
+    };
+
+    function partNorm(s) {
+      return String(s || '').toLowerCase().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function partAbrev(grupo) {
+      const n = partNorm(grupo);
+      for (const [k, v] of Object.entries(PART_ABREV)) {
+        if (partNorm(k) === n) return v;
+      }
+      // título curto se não tiver abreviação
+      const g = String(grupo || '').trim();
+      return g.length > 14 ? g.slice(0, 12) + '…' : g;
+    }
+
+    function partExcluido(grupo) {
+      const n = partNorm(grupo);
+      return PART_EXCLUIDOS.some(x => partNorm(x) === n);
+    }
+
+    function isoParaSemana(iso) {
+      if (!iso) return '';
+      const d = new Date(String(iso).slice(0, 10) + 'T12:00:00');
+      if (isNaN(d.getTime())) return '';
+      // ISO week
+      const dayNum = (d.getDay() + 6) % 7;
+      d.setDate(d.getDate() - dayNum + 3);
+      const firstThursday = new Date(d.getFullYear(), 0, 4);
+      const week = 1 + Math.round(((d - firstThursday) / 86400000 - 3 + ((firstThursday.getDay() + 6) % 7)) / 7);
+      const year = d.getFullYear();
+      return year + '-W' + String(week).padStart(2, '0');
+    }
+
+    function formatDataCurta(iso) {
+      if (!iso) return '';
+      const s = String(iso).slice(0, 10);
+      const p = s.split('-');
+      if (p.length !== 3) return s;
+      return p[2] + '/' + p[1];
+    }
+
+    function limparFiltrosParticipacoes() {
+      const b = document.getElementById('part-busca');
+      const m = document.getElementById('part-mes');
+      const s = document.getElementById('part-semana');
+      if (b) b.value = '';
+      if (m) m.value = '';
+      if (s) s.value = '';
+      renderParticipacoes();
+    }
+
+    function renderParticipacoes() {
+      const theadRow = document.getElementById('part-thead-row');
+      const tbody = document.getElementById('part-tbody');
+      const vazio = document.getElementById('part-vazio');
+      const resumo = document.getElementById('part-resumo');
+      if (!theadRow || !tbody) return;
+
+      const busca = (document.getElementById('part-busca')?.value || '').toLowerCase().trim();
+      const filtroMes = document.getElementById('part-mes')?.value || '';
+      const filtroSemana = document.getElementById('part-semana')?.value || '';
+
+      // Preenche opções de mês a partir dos relatórios
+      const selMes = document.getElementById('part-mes');
+      if (selMes) {
+        const atual = selMes.value;
+        const meses = [...new Set(
+          (relatoriosGrupos || []).map(r => r.mes || (r.data_evento ? String(r.data_evento).slice(0, 7) : '')).filter(Boolean)
+        )].sort().reverse();
+        selMes.innerHTML = '<option value="">Todos</option>' + meses.map(m =>
+          `<option value="${m}">${typeof mesLabel === 'function' ? mesLabel(m) : m}</option>`
+        ).join('');
+        if (meses.includes(atual)) selMes.value = atual;
+      }
+
+      // Colunas: projetos que aparecem e não estão excluídos (+ ordem fixa preferencial)
+      const ordemPref = [
+        'Ponto de fé', 'Ponto de oração', 'Guardiões da estrada', 'Anjos da Madrugada',
+        'Bom Samaritano', 'Consolador', 'EVG ao pé da cruz', 'Núcleo no lar', 'Unisocial'
+      ];
+      const gruposSet = new Set();
+      (relatoriosGrupos || []).forEach(r => {
+        const g = (r.grupo || '').trim();
+        if (g && !partExcluido(g)) gruposSet.add(g);
+      });
+      // mantém nome canônico quando possível
+      let colunas = ordemPref.filter(g => {
+        const n = partNorm(g);
+        return [...gruposSet].some(x => partNorm(x) === n);
+      });
+      [...gruposSet].forEach(g => {
+        if (!colunas.some(c => partNorm(c) === partNorm(g))) colunas.push(g);
+      });
+      // se ainda vazio, mostra colunas preferenciais mesmo sem dados
+      if (colunas.length === 0) colunas = [...ordemPref];
+
+      theadRow.innerHTML =
+        '<th class="text-left px-3 py-3 font-semibold text-evg-blue whitespace-nowrap sticky left-0 bg-gray-50 z-10">Nome</th>' +
+        colunas.map(g =>
+          `<th class="text-center px-2 py-3 font-semibold text-evg-blue whitespace-nowrap text-xs" title="${g}">${partAbrev(g)}</th>`
+        ).join('');
+
+      // matriz: nome -> grupoNorm -> Set de datas
+      const matriz = {};
+      let relsFiltrados = 0;
+      (relatoriosGrupos || []).forEach(r => {
+        const grupo = (r.grupo || '').trim();
+        if (!grupo || partExcluido(grupo)) return;
+        const dataIso = r.data_evento ? String(r.data_evento).slice(0, 10)
+          : (r.data ? String(r.data).slice(0, 10) : (r.created_at ? String(r.created_at).slice(0, 10) : ''));
+        const mes = r.mes || (dataIso ? dataIso.slice(0, 7) : '');
+        if (filtroMes && mes !== filtroMes) return;
+        if (filtroSemana && isoParaSemana(dataIso) !== filtroSemana) return;
+        relsFiltrados++;
+        const vols = Array.isArray(r.voluntarios) ? r.voluntarios : [];
+        vols.forEach(nomeRaw => {
+          const nome = String(nomeRaw || '').trim();
+          if (!nome) return;
+          if (busca && !nome.toLowerCase().includes(busca)) return;
+          if (!matriz[nome]) matriz[nome] = {};
+          const gk = partNorm(grupo);
+          if (!matriz[nome][gk]) matriz[nome][gk] = new Set();
+          if (dataIso) matriz[nome][gk].add(dataIso);
+          else matriz[nome][gk].add('—');
+        });
+      });
+
+      let nomes = Object.keys(matriz).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      if (busca) nomes = nomes.filter(n => n.toLowerCase().includes(busca));
+
+      if (resumo) {
+        resumo.innerHTML = `<strong>${nomes.length}</strong> voluntário(s) · <strong>${relsFiltrados}</strong> relatório(s) no filtro`;
+      }
+
+      if (nomes.length === 0) {
+        tbody.innerHTML = '';
+        if (vazio) vazio.classList.remove('hidden');
+        return;
+      }
+      if (vazio) vazio.classList.add('hidden');
+
+      tbody.innerHTML = nomes.map(nome => {
+        const cells = colunas.map(g => {
+          const set = matriz[nome]?.[partNorm(g)];
+          if (!set || set.size === 0) {
+            return '<td class="text-center px-2 py-2 text-gray-300">—</td>';
+          }
+          const datas = [...set].filter(d => d !== '—').sort().map(formatDataCurta);
+          const txt = datas.length ? datas.join(' · ') : '✓';
+          return `<td class="text-center px-2 py-2 text-xs text-evg-blue font-medium whitespace-nowrap">${txt}</td>`;
+        }).join('');
+        return `<tr class="hover:bg-gray-50">
+          <td class="px-3 py-2 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-white">${nome}</td>
+          ${cells}
+        </tr>`;
+      }).join('');
     }
 
     // Abre link público da contagem (?contagem=1) — só formulário
