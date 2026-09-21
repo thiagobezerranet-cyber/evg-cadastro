@@ -4298,30 +4298,65 @@
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
 
-    // Remove prefixo Obr/Obreiro e normaliza espaços — NÃO altera grafia (Thiago ≠ Tiago)
+    // Remove prefixo Obr/Obreiro/Dona e normaliza espaços — NÃO altera grafia (Thiago ≠ Tiago)
     function partNomeLimpo(nome) {
       let s = String(nome || '').trim().replace(/\s+/g, ' ');
-      s = s.replace(/^(obr\.?|obreiro|obreira|coord\.?|coordenador\(a\)?|coordenadora)\s+/i, '');
+      s = s.replace(/^(obr\.?|obreiro|obreira|coord\.?|coordenador\(a\)?|coordenadora|dona|don|sr\.?|sra\.?|senhor\(a\)?|senhora)\s+/i, '');
       return s.trim();
     }
 
-    // Chave para juntar: minúsculo, sem acento, sem "Obr" — Barbara = BARBARA = obr Bárbara
-    // Thiago e Tiago continuam diferentes (letras diferentes)
+    // Chave base: minúsculo, sem acento, sem "Obr"/"Dona"
     function partNomeChave(nome) {
       return partNorm(partNomeLimpo(nome));
+    }
+
+    // Mesma pessoa? Exacto OU um nome é o começo do outro
+    // Ex.: "Eurídice" = "Eurídice Ferreira da Silva"
+    // NÃO junta "Maria Silva" com "Maria Santos" (sobrenomes diferentes)
+    // NÃO junta "Thiago" com "Tiago"
+    function partNomesMesmaPessoa(a, b) {
+      const ka = partNomeChave(a);
+      const kb = partNomeChave(b);
+      if (!ka || !kb) return false;
+      if (ka === kb) return true;
+      if (ka.startsWith(kb + ' ') || kb.startsWith(ka + ' ')) return true;
+      return false;
+    }
+
+    function partAcharVoluntarioCadastro(nome) {
+      const lista = voluntarios || [];
+      // 1) chave exata
+      let vol = lista.find(v => partNomeChave(v.nome) === partNomeChave(nome));
+      if (vol) return vol;
+      // 2) um contém o outro (Eurídice ↔ Eurídice Completa)
+      vol = lista.find(v => partNomesMesmaPessoa(v.nome, nome));
+      return vol || null;
     }
 
     function partNomeDisplay(nome) {
       const limpo = partNomeLimpo(nome);
       if (!limpo) return String(nome || '').trim();
-      // Preferir nome do cadastro de voluntários, se existir
-      const vol = (voluntarios || []).find(v => partNomeChave(v.nome) === partNomeChave(limpo));
+      const vol = partAcharVoluntarioCadastro(limpo);
       if (vol && vol.nome) return vol.nome;
-      // Capitaliza de forma simples
       return limpo.split(' ').map(w => {
         if (!w) return w;
         return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
       }).join(' ');
+    }
+
+    // Encontra chave já usada na matriz para o mesmo pessoa
+    function partAcharChaveMatriz(matriz, nomeRaw) {
+      const k = partNomeChave(nomeRaw);
+      if (!k) return '';
+      if (matriz[k]) return k;
+      for (const existing of Object.keys(matriz)) {
+        if (partNomesMesmaPessoa(existing, k)) return existing;
+        if (partNomesMesmaPessoa(matriz[existing].display, nomeRaw)) return existing;
+        for (const v of matriz[existing].variants) {
+          if (partNomesMesmaPessoa(v, nomeRaw)) return existing;
+        }
+      }
+      return k;
     }
 
     function partListaVoluntarios(r) {
@@ -4449,7 +4484,7 @@
 
       // matriz: chaveNome -> { display, variants, grupos: { gk: Set datas } }
       const matriz = {};
-      const chavesQueParticiparam = new Set();
+      const nomesQueParticiparam = []; // nomes brutos + limpos para cruzar com cadastro
       let relsFiltrados = 0;
       (relatoriosGrupos || []).forEach(r => {
         const grupo = (r.grupo || '').trim();
@@ -4461,10 +4496,10 @@
         if (filtroAte && dataIso && dataIso > filtroAte) return;
         relsFiltrados++;
         partListaVoluntarios(r).forEach(nomeRaw => {
-          const chave = partNomeChave(nomeRaw);
+          const chave = partAcharChaveMatriz(matriz, nomeRaw);
           if (!chave) return;
-          chavesQueParticiparam.add(chave);
-          if (busca && !chave.includes(partNorm(busca)) && !String(nomeRaw).toLowerCase().includes(busca)) return;
+          nomesQueParticiparam.push(nomeRaw);
+          if (busca && !chave.includes(partNorm(busca)) && !String(nomeRaw).toLowerCase().includes(busca) && !partNomeChave(nomeRaw).includes(partNorm(busca))) return;
           if (!matriz[chave]) {
             matriz[chave] = {
               display: partNomeDisplay(nomeRaw),
@@ -4473,8 +4508,16 @@
             };
           }
           matriz[chave].variants.add(String(nomeRaw).trim());
-          const vol = (voluntarios || []).find(v => partNomeChave(v.nome) === chave);
-          if (vol && vol.nome) matriz[chave].display = vol.nome;
+          const vol = partAcharVoluntarioCadastro(nomeRaw);
+          if (vol && vol.nome) {
+            matriz[chave].display = vol.nome;
+          } else {
+            // Prefere o nome mais completo entre as variantes
+            const limpo = partNomeLimpo(nomeRaw);
+            if (limpo.length > partNomeLimpo(matriz[chave].display).length) {
+              matriz[chave].display = partNomeDisplay(limpo);
+            }
+          }
           const gk = partNorm(grupo);
           if (!matriz[chave].grupos[gk]) matriz[chave].grupos[gk] = new Set();
           if (dataIso) matriz[chave].grupos[gk].add(dataIso);
@@ -4486,10 +4529,10 @@
       if (modo === 'nao_participaram') {
         if (tabelaWrap) tabelaWrap.classList.add('hidden');
         if (semLista) semLista.classList.remove('hidden');
-        // Quem conta como "cadastrado ativo" na EVG
+        // Ativo no cadastro e não aparece em relatório (mesmo com nome parcial/completo)
         let listaSem = (voluntarios || [])
           .filter(v => v && v.nome && isAtivo(v))
-          .filter(v => !chavesQueParticiparam.has(partNomeChave(v.nome)));
+          .filter(v => !nomesQueParticiparam.some(n => partNomesMesmaPessoa(v.nome, n)));
         if (busca) {
           listaSem = listaSem.filter(v =>
             (v.nome || '').toLowerCase().includes(busca) ||
