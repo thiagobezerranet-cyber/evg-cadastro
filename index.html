@@ -1747,7 +1747,7 @@
         document.getElementById('painel-atendimento').classList.add('hidden');
         buscarAtendimento();
       }
-      if (page === 'form-grupo') {
+      if (page === 'form-grupo' && !isEdit) {
         preencherFormGrupo();
         // Se gestão abrir o formulário, já sugere o nome de quem está logado
         const coordInput = document.getElementById('rel_coordenador');
@@ -2696,8 +2696,10 @@
       if (box) box.classList.add('hidden');
     }
 
-    function removerVolRelatorio(nome) {
-      relVolSelecionados = relVolSelecionados.filter(n => n !== nome);
+    function removerVolRelatorio(idx) {
+      const i = parseInt(idx, 10);
+      if (isNaN(i)) return;
+      relVolSelecionados = relVolSelecionados.filter((_, j) => j !== i);
       renderVolSelecionados();
     }
 
@@ -2708,10 +2710,10 @@
         el.innerHTML = '<span class="text-xs text-gray-400">Nenhum voluntário selecionado ainda</span>';
         return;
       }
-      el.innerHTML = relVolSelecionados.map(n => `
+      el.innerHTML = relVolSelecionados.map((n, i) => `
         <span class="inline-flex items-center gap-1 bg-evg-blue text-white text-xs px-2 py-1 rounded-full">
-          ${n}
-          <button type="button" onclick="removerVolRelatorio('${n.replace(/'/g, "\\'")}')" class="hover:text-red-200 ml-1">×</button>
+          ${String(n).replace(/</g, '&lt;')}
+          <button type="button" onclick="removerVolRelatorio(${i})" class="hover:text-red-200 ml-1" title="Remover">×</button>
         </span>
       `).join('');
     }
@@ -2886,13 +2888,32 @@
       }).join('');
     }
 
+    function parseListaVoluntariosRel(val) {
+      if (!val) return [];
+      if (Array.isArray(val)) return val.map(v => String(v || '').trim()).filter(Boolean);
+      if (typeof val === 'string') {
+        const s = val.trim();
+        if (!s) return [];
+        // JSON array?
+        if (s.startsWith('[')) {
+          try {
+            const j = JSON.parse(s);
+            if (Array.isArray(j)) return j.map(v => String(v || '').trim()).filter(Boolean);
+          } catch (e) {}
+        }
+        return s.split(/[,;]+/).map(x => x.trim()).filter(Boolean);
+      }
+      return [];
+    }
+
     function editarRelatorio(id) {
       const r = relatoriosGrupos.find(x => x.id === id);
       if (!r) {
         alert('Relatório não encontrado.');
         return;
       }
-      showPage('form-grupo');
+      // isEdit=true evita limpar o formulário (e a lista de voluntários)
+      showPage('form-grupo', true);
       document.getElementById('rel_edit_id').value = r.id;
       document.getElementById('rel_data_evento').value = r.data_evento || (r.created_at ? String(r.created_at).slice(0, 10) : new Date().toISOString().slice(0, 10));
       document.getElementById('rel_coordenador').value = r.coordenador || '';
@@ -2913,7 +2934,7 @@
       document.getElementById('rel_melhorar').value = r.melhorar || '';
       document.getElementById('rel_ideias').value = r.ideias || '';
       document.getElementById('rel_precisam').value = r.precisam || '';
-      relVolSelecionados = Array.isArray(r.voluntarios) ? [...r.voluntarios] : [];
+      relVolSelecionados = parseListaVoluntariosRel(r.voluntarios);
       renderVolSelecionados();
       atualizarCamposExtrasGrupo();
       const diasPf = Array.isArray(r.dias_ponto_fe) ? r.dias_ponto_fe : [];
@@ -2922,6 +2943,8 @@
       });
       const btn = document.querySelector('#form-relatorio-grupo button[type="submit"]');
       if (btn) btn.textContent = 'Atualizar Relatório';
+      // Garante que os chips de voluntários apareçam após o DOM da página
+      setTimeout(() => renderVolSelecionados(), 50);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -4263,6 +4286,41 @@
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
 
+    // Remove prefixo Obr/Obreiro e normaliza espaços — NÃO altera grafia (Thiago ≠ Tiago)
+    function partNomeLimpo(nome) {
+      let s = String(nome || '').trim().replace(/\s+/g, ' ');
+      s = s.replace(/^(obr\.?|obreiro|obreira|coord\.?|coordenador\(a\)?|coordenadora)\s+/i, '');
+      return s.trim();
+    }
+
+    // Chave para juntar: minúsculo, sem acento, sem "Obr" — Barbara = BARBARA = obr Bárbara
+    // Thiago e Tiago continuam diferentes (letras diferentes)
+    function partNomeChave(nome) {
+      return partNorm(partNomeLimpo(nome));
+    }
+
+    function partNomeDisplay(nome) {
+      const limpo = partNomeLimpo(nome);
+      if (!limpo) return String(nome || '').trim();
+      // Preferir nome do cadastro de voluntários, se existir
+      const vol = (voluntarios || []).find(v => partNomeChave(v.nome) === partNomeChave(limpo));
+      if (vol && vol.nome) return vol.nome;
+      // Capitaliza de forma simples
+      return limpo.split(' ').map(w => {
+        if (!w) return w;
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+      }).join(' ');
+    }
+
+    function partListaVoluntarios(r) {
+      let vols = r && r.voluntarios;
+      if (typeof vols === 'string') {
+        vols = vols.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+      }
+      if (!Array.isArray(vols)) return [];
+      return vols.map(v => String(v || '').trim()).filter(Boolean);
+    }
+
     function partAbrev(grupo) {
       const n = partNorm(grupo);
       for (const [k, v] of Object.entries(PART_ABREV)) {
@@ -4360,7 +4418,7 @@
           `<th class="text-center px-2 py-3 font-semibold text-evg-blue whitespace-nowrap text-xs" title="${g}">${partAbrev(g)}</th>`
         ).join('');
 
-      // matriz: nome -> grupoNorm -> Set de datas
+      // matriz: chaveNome -> { display, variants, grupos: { gk: Set datas } }
       const matriz = {};
       let relsFiltrados = 0;
       (relatoriosGrupos || []).forEach(r => {
@@ -4372,45 +4430,72 @@
         if (filtroMes && mes !== filtroMes) return;
         if (filtroSemana && isoParaSemana(dataIso) !== filtroSemana) return;
         relsFiltrados++;
-        const vols = Array.isArray(r.voluntarios) ? r.voluntarios : [];
-        vols.forEach(nomeRaw => {
-          const nome = String(nomeRaw || '').trim();
-          if (!nome) return;
-          if (busca && !nome.toLowerCase().includes(busca)) return;
-          if (!matriz[nome]) matriz[nome] = {};
+        partListaVoluntarios(r).forEach(nomeRaw => {
+          const chave = partNomeChave(nomeRaw);
+          if (!chave) return;
+          if (busca && !chave.includes(partNorm(busca)) && !String(nomeRaw).toLowerCase().includes(busca)) return;
+          if (!matriz[chave]) {
+            matriz[chave] = {
+              display: partNomeDisplay(nomeRaw),
+              variants: new Set(),
+              grupos: {}
+            };
+          }
+          matriz[chave].variants.add(String(nomeRaw).trim());
+          // Atualiza display se achar no cadastro
+          const vol = (voluntarios || []).find(v => partNomeChave(v.nome) === chave);
+          if (vol && vol.nome) matriz[chave].display = vol.nome;
           const gk = partNorm(grupo);
-          if (!matriz[nome][gk]) matriz[nome][gk] = new Set();
-          if (dataIso) matriz[nome][gk].add(dataIso);
-          else matriz[nome][gk].add('—');
+          if (!matriz[chave].grupos[gk]) matriz[chave].grupos[gk] = new Set();
+          if (dataIso) matriz[chave].grupos[gk].add(dataIso);
+          else matriz[chave].grupos[gk].add('—');
         });
       });
 
-      let nomes = Object.keys(matriz).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-      if (busca) nomes = nomes.filter(n => n.toLowerCase().includes(busca));
-
-      if (resumo) {
-        resumo.innerHTML = `<strong>${nomes.length}</strong> voluntário(s) · <strong>${relsFiltrados}</strong> relatório(s) no filtro`;
+      let chaves = Object.keys(matriz).sort((a, b) =>
+        matriz[a].display.localeCompare(matriz[b].display, 'pt-BR')
+      );
+      if (busca) {
+        const b = partNorm(busca);
+        chaves = chaves.filter(k =>
+          k.includes(b) || partNorm(matriz[k].display).includes(b) ||
+          [...matriz[k].variants].some(v => String(v).toLowerCase().includes(busca))
+        );
       }
 
-      if (nomes.length === 0) {
+      if (resumo) {
+        resumo.innerHTML = `<strong>${chaves.length}</strong> voluntário(s) · <strong>${relsFiltrados}</strong> relatório(s) no filtro
+          <span class="text-xs text-gray-400 ml-2">(Obr + maiúsculas/minúsculas são unificados · Thiago ≠ Tiago)</span>`;
+      }
+
+      if (chaves.length === 0) {
         tbody.innerHTML = '';
         if (vazio) vazio.classList.remove('hidden');
         return;
       }
       if (vazio) vazio.classList.add('hidden');
 
-      tbody.innerHTML = nomes.map(nome => {
+      tbody.innerHTML = chaves.map(chave => {
+        const row = matriz[chave];
+        const variants = [...row.variants];
+        const extra = variants.length > 1
+          ? `<div class="text-[10px] text-gray-400 font-normal mt-0.5" title="Nomes como apareceram nos relatórios">${variants.map(v => v).join(' · ')}</div>`
+          : '';
         const cells = colunas.map(g => {
-          const set = matriz[nome]?.[partNorm(g)];
+          const set = row.grupos[partNorm(g)];
           if (!set || set.size === 0) {
             return '<td class="text-center px-2 py-2 text-gray-300">—</td>';
           }
           const datas = [...set].filter(d => d !== '—').sort().map(formatDataCurta);
-          const txt = datas.length ? datas.join(' · ') : '✓';
-          return `<td class="text-center px-2 py-2 text-xs text-evg-blue font-medium whitespace-nowrap">${txt}</td>`;
+          const txt = datas.length
+            ? datas.map(d => `<div>${d}</div>`).join('')
+            : '<div>✓</div>';
+          return `<td class="text-center px-2 py-2 text-xs text-evg-blue font-medium">${txt}</td>`;
         }).join('');
         return `<tr class="hover:bg-gray-50">
-          <td class="px-3 py-2 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-white">${nome}</td>
+          <td class="px-3 py-2 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-white align-top">
+            <div>${row.display}</div>${extra}
+          </td>
           ${cells}
         </tr>`;
       }).join('');
