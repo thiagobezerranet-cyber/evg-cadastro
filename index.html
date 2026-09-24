@@ -147,6 +147,10 @@
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>💾</span> Backup
           </button>
+          <button onclick="showPage('usuarios')" data-page="usuarios"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>🔑</span> Usuários
+          </button>
         </div>
         <!-- Menu só coordenador -->
         <div id="menu-coordenador" class="hidden">
@@ -268,6 +272,85 @@
           </div>
 
           <p id="backup-status" class="text-sm text-gray-500 hidden"></p>
+        </div>
+      </div>
+
+      <!-- USUÁRIOS (login) -->
+      <div id="page-usuarios" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Usuários de acesso</h1>
+        <p class="text-sm text-gray-500 mb-6">Quem pode entrar no sistema (gestão e coordenadores). Só a gestão usa esta tela.</p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <!-- Criar -->
+          <div class="bg-white rounded-xl shadow p-6">
+            <h2 class="font-semibold text-evg-blue mb-3">Novo usuário</h2>
+            <form id="form-novo-usuario" class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium mb-1">Nome *</label>
+                <input type="text" id="usr-nome" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex: Juliana">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">E-mail *</label>
+                <input type="email" id="usr-email" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="email@exemplo.com">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Senha *</label>
+                <input type="password" id="usr-senha" required minlength="6" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Mínimo 6 caracteres">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Tipo *</label>
+                <select id="usr-tipo" class="w-full px-3 py-2 border rounded-lg text-sm">
+                  <option value="gestao">Gestão (acesso total)</option>
+                  <option value="coordenador">Coordenador (só relatório)</option>
+                </select>
+              </div>
+              <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-5 py-2.5 rounded-lg text-sm font-medium">
+                Criar usuário
+              </button>
+              <p class="text-xs text-gray-500">Depois de criar, o sistema pode pedir para você entrar de novo com a sua conta de gestão.</p>
+            </form>
+          </div>
+
+          <!-- Minha senha -->
+          <div class="bg-white rounded-xl shadow p-6">
+            <h2 class="font-semibold text-evg-blue mb-3">Trocar minha senha</h2>
+            <form id="form-minha-senha" class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium mb-1">Nova senha *</label>
+                <input type="password" id="usr-nova-senha" required minlength="6" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Mínimo 6 caracteres">
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Confirmar nova senha *</label>
+                <input type="password" id="usr-nova-senha2" required minlength="6" class="w-full px-3 py-2 border rounded-lg text-sm">
+              </div>
+              <button type="submit" class="bg-gray-800 hover:bg-black text-white px-5 py-2.5 rounded-lg text-sm font-medium">
+                Salvar minha senha
+              </button>
+            </form>
+            <p class="text-xs text-gray-500 mt-3">Para trocar a senha de <strong>outra pessoa</strong>, use o Supabase (Authentication → Users) ou peça para ela entrar e trocar aqui.</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow overflow-hidden">
+          <div class="px-4 py-3 border-b flex items-center justify-between">
+            <h2 class="font-semibold text-evg-blue">Usuários cadastrados</h2>
+            <button type="button" onclick="carregarUsuarios()" class="text-sm text-evg-blue hover:underline">Atualizar lista</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="text-left px-4 py-3">Nome</th>
+                  <th class="text-left px-4 py-3">E-mail</th>
+                  <th class="text-left px-4 py-3">Tipo</th>
+                  <th class="text-left px-4 py-3">Status</th>
+                  <th class="text-right px-4 py-3">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="lista-usuarios" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+          <p id="usuarios-vazio" class="hidden p-6 text-center text-gray-500 text-sm">Nenhum perfil encontrado.</p>
         </div>
       </div>
 
@@ -1623,7 +1706,13 @@
       const userId = data.user.id;
       const { data: perfil, error: perfilErr } = await supabaseClient.from('perfis').select('*').eq('id', userId).maybeSingle();
       if (perfilErr || !perfil) {
-        errorEl.textContent = 'Usuário sem perfil. Peça à gestão para cadastrar seu acesso (tabela perfis).';
+        errorEl.textContent = 'Usuário sem perfil. Peça à gestão para cadastrar seu acesso (menu Usuários).';
+        errorEl.classList.remove('hidden');
+        await supabaseClient.auth.signOut();
+        return;
+      }
+      if (perfil.ativo === false) {
+        errorEl.textContent = 'Este acesso foi desativado. Fale com a gestão.';
         errorEl.classList.remove('hidden');
         await supabaseClient.auth.signOut();
         return;
@@ -1748,7 +1837,10 @@
         if (!session) return;
         const userId = session.user.id;
         const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', userId).maybeSingle();
-        if (!perfil) return;
+        if (!perfil || perfil.ativo === false) {
+          await supabaseClient.auth.signOut();
+          return;
+        }
         usuarioLogado = {
           id: userId,
           email: session.user.email,
@@ -1840,6 +1932,9 @@
       if (page === 'backup') {
         const st = document.getElementById('backup-status');
         if (st) { st.classList.add('hidden'); st.textContent = ''; }
+      }
+      if (page === 'usuarios') {
+        carregarUsuarios();
       }
     }
 
@@ -4309,6 +4404,170 @@
       await carregarContagens();
       renderContagem();
     }
+
+    // ===================== USUÁRIOS (perfis + auth) =====================
+    let listaPerfis = [];
+
+    async function carregarUsuarios() {
+      const tbody = document.getElementById('lista-usuarios');
+      const vazio = document.getElementById('usuarios-vazio');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">Carregando…</td></tr>';
+      const { data, error } = await supabaseClient.from('perfis').select('*').order('nome');
+      if (error) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-red-600">Erro: ${error.message}</td></tr>`;
+        return;
+      }
+      listaPerfis = data || [];
+      if (listaPerfis.length === 0) {
+        tbody.innerHTML = '';
+        if (vazio) vazio.classList.remove('hidden');
+        return;
+      }
+      if (vazio) vazio.classList.add('hidden');
+      tbody.innerHTML = listaPerfis.map(p => {
+        const ativo = p.ativo !== false;
+        const tipoLabel = p.tipo === 'gestao' ? 'Gestão' : 'Coordenador';
+        const tipoClass = p.tipo === 'gestao' ? 'bg-purple-50 text-purple-800' : 'bg-blue-50 text-blue-800';
+        const statusClass = ativo ? 'text-green-700' : 'text-red-600';
+        const souEu = usuarioLogado && usuarioLogado.id === p.id;
+        return `<tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 font-medium">${p.nome || '—'} ${souEu ? '<span class="text-xs text-gray-400">(você)</span>' : ''}</td>
+          <td class="px-4 py-3 text-gray-600">${p.email || '—'}</td>
+          <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs ${tipoClass}">${tipoLabel}</span></td>
+          <td class="px-4 py-3 ${statusClass}">${ativo ? 'Ativo' : 'Desativado'}</td>
+          <td class="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+            <button type="button" onclick="editarUsuarioPrompt('${p.id}')" class="text-evg-blue text-sm hover:underline">Editar</button>
+            ${!souEu ? `<button type="button" onclick="alternarAtivoUsuario('${p.id}')" class="text-sm hover:underline ${ativo ? 'text-amber-700' : 'text-green-700'}">${ativo ? 'Desativar' : 'Ativar'}</button>` : ''}
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function editarUsuarioPrompt(id) {
+      const p = listaPerfis.find(x => x.id === id);
+      if (!p) return;
+      const nome = prompt('Nome do usuário:', p.nome || '');
+      if (nome === null) return;
+      const tipoAtual = p.tipo === 'gestao' ? 'gestao' : 'coordenador';
+      const tipoIn = prompt('Tipo: digite gestao ou coordenador', tipoAtual);
+      if (tipoIn === null) return;
+      const tipo = String(tipoIn).toLowerCase().trim() === 'gestao' ? 'gestao' : 'coordenador';
+      const email = prompt('E-mail (só referência na lista):', p.email || '') ;
+      if (email === null) return;
+      const { error } = await supabaseClient.from('perfis').update({
+        nome: nome.trim() || p.nome,
+        tipo,
+        email: (email || '').trim() || p.email || null
+      }).eq('id', id);
+      if (error) {
+        alert('Erro ao atualizar: ' + error.message + '\n\nSe faltar coluna email/ativo, rode o SQL de usuários no Supabase.');
+        return;
+      }
+      if (usuarioLogado && usuarioLogado.id === id) {
+        usuarioLogado.nome = nome.trim() || usuarioLogado.nome;
+        usuarioLogado.tipo = tipo;
+        usuarioLogado.role = tipo === 'gestao' ? 'Gestão' : 'Coordenador de Grupo';
+        document.getElementById('user-name').textContent = usuarioLogado.nome;
+        document.getElementById('user-role').textContent = usuarioLogado.role;
+      }
+      alert('Usuário atualizado.');
+      carregarUsuarios();
+    }
+
+    async function alternarAtivoUsuario(id) {
+      const p = listaPerfis.find(x => x.id === id);
+      if (!p) return;
+      if (usuarioLogado && usuarioLogado.id === id) {
+        alert('Você não pode desativar a si mesmo.');
+        return;
+      }
+      const novo = p.ativo === false;
+      if (!confirm((novo ? 'Ativar' : 'Desativar') + ' o acesso de "' + (p.nome || p.email || id) + '"?')) return;
+      const { error } = await supabaseClient.from('perfis').update({ ativo: novo }).eq('id', id);
+      if (error) {
+        alert('Erro: ' + error.message + '\n\nRode o SQL de usuários no Supabase (coluna ativo).');
+        return;
+      }
+      carregarUsuarios();
+    }
+
+    document.getElementById('form-novo-usuario')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!usuarioLogado || usuarioLogado.tipo !== 'gestao') {
+        alert('Só a gestão pode criar usuários.');
+        return;
+      }
+      const nome = document.getElementById('usr-nome').value.trim();
+      const email = document.getElementById('usr-email').value.trim().toLowerCase();
+      const senha = document.getElementById('usr-senha').value;
+      const tipo = document.getElementById('usr-tipo').value;
+      if (!nome || !email || !senha) {
+        alert('Preencha nome, e-mail e senha.');
+        return;
+      }
+      if (senha.length < 6) {
+        alert('Senha com no mínimo 6 caracteres.');
+        return;
+      }
+
+      const gestaoEmail = usuarioLogado.email;
+      if (!confirm('Ao criar o usuário, você pode ser desconectado e precisar entrar de novo com a conta de gestão (' + (gestaoEmail || '') + ').\n\nContinuar?')) return;
+
+      const { data: signData, error: signErr } = await supabaseClient.auth.signUp({
+        email,
+        password: senha
+      });
+      if (signErr) {
+        alert('Erro ao criar login: ' + signErr.message + '\n\nNo Supabase: Authentication → Providers → Email ativo, e “Confirm email” desligado ajuda neste fluxo.');
+        return;
+      }
+      const newId = signData?.user?.id;
+      if (!newId) {
+        alert('Usuário pode ter sido criado, mas precisa confirmar o e-mail. Desative “Confirm email” no Supabase ou confirme o e-mail e depois cadastre o perfil.');
+        return;
+      }
+
+      const { error: perfilErr } = await supabaseClient.from('perfis').upsert({
+        id: newId,
+        nome,
+        email,
+        tipo,
+        ativo: true
+      });
+      if (perfilErr) {
+        alert('Login criado, mas perfil falhou: ' + perfilErr.message + '\n\nNo SQL Editor, rode o SQL de usuários e depois edite o perfil manualmente se precisar.\nID: ' + newId);
+      } else {
+        alert('Usuário criado: ' + nome + ' (' + email + ').\n\nEntre de novo com a sua conta de gestão.');
+      }
+
+      document.getElementById('form-novo-usuario').reset();
+      try { await supabaseClient.auth.signOut(); } catch (err) {}
+      usuarioLogado = null;
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('login-screen').classList.remove('hidden');
+    });
+
+    document.getElementById('form-minha-senha')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const s1 = document.getElementById('usr-nova-senha').value;
+      const s2 = document.getElementById('usr-nova-senha2').value;
+      if (s1.length < 6) {
+        alert('Senha com no mínimo 6 caracteres.');
+        return;
+      }
+      if (s1 !== s2) {
+        alert('As senhas não conferem.');
+        return;
+      }
+      const { error } = await supabaseClient.auth.updateUser({ password: s1 });
+      if (error) {
+        alert('Erro ao trocar senha: ' + error.message);
+        return;
+      }
+      document.getElementById('form-minha-senha').reset();
+      alert('Senha atualizada com sucesso.');
+    });
 
     // ===================== BACKUP / EXPORTAR =====================
     const BACKUP_TABELAS = [
