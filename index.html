@@ -1075,7 +1075,7 @@
 
             <div class="mt-4">
               <label class="block text-sm font-medium mb-1">Quais voluntários estavam no projeto, ajudando?</label>
-              <p class="text-xs text-gray-500 mb-2">Digite para buscar e toque/clique no nome para adicionar. Pode adicionar vários.</p>
+              <p class="text-xs text-gray-500 mb-2">Digite e escolha o nome da lista do cadastro (recomendado). O sistema grava o nome oficial da ficha para não duplicar (ex.: Eurídice = Eurídice Silva).</p>
               <div class="relative">
                 <input type="text" id="rel_busca_vol"
                        class="w-full px-3 py-3 border rounded-lg text-base sm:text-sm"
@@ -2793,57 +2793,105 @@
       }
     }
 
+    function nomeOficialVoluntario(nome) {
+      const raw = String(nome || '').trim();
+      if (!raw) return '';
+      if (typeof partAcharVoluntarioCadastro === 'function') {
+        const vol = partAcharVoluntarioCadastro(raw);
+        if (vol && vol.nome) return vol.nome;
+      }
+      const t = raw.toLowerCase();
+      const v = (voluntarios || []).find(x => (x.nome || '').toLowerCase() === t);
+      if (v && v.nome) return v.nome;
+      return raw;
+    }
+
+    function volJaSelecionado(nome) {
+      return relVolSelecionados.some(n => {
+        if (n === nome) return true;
+        if (typeof partNomesMesmaPessoa === 'function') return partNomesMesmaPessoa(n, nome);
+        return String(n || '').toLowerCase() === String(nome || '').toLowerCase();
+      });
+    }
+
     function filtrarVolRelatorio() {
-      const termo = (document.getElementById('rel_busca_vol').value || '').toLowerCase().trim();
+      const termoRaw = (document.getElementById('rel_busca_vol').value || '').trim();
+      const termo = termoRaw.toLowerCase();
       const box = document.getElementById('rel_busca_resultados');
       if (!box) return;
 
-      let lista = voluntarios.filter(v => v && v.nome && isAtivo(v));
+      let lista = (voluntarios || []).filter(v => v && v.nome && isAtivo(v));
       if (termo) {
-        lista = lista.filter(v => (v.nome || '').toLowerCase().includes(termo));
+        lista = lista.filter(v => {
+          const n = (v.nome || '').toLowerCase();
+          if (n.includes(termo)) return true;
+          if (typeof partNomeChave === 'function') {
+            const k = partNomeChave(v.nome);
+            const kt = partNomeChave(termoRaw);
+            if (k.includes(kt) || kt.includes(k.split(' ')[0] || '')) return true;
+            if (typeof partNomesMesmaPessoa === 'function' && partNomesMesmaPessoa(v.nome, termoRaw)) return true;
+          }
+          return false;
+        });
       }
-      lista = lista.filter(v => !relVolSelecionados.includes(v.nome));
-      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+      lista = lista.filter(v => !volJaSelecionado(v.nome));
+      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
 
-      if (voluntarios.length === 0) {
-        if (termo) {
-          const safe = termo.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-          box.innerHTML = `<button type="button" onmousedown="event.preventDefault(); adicionarVolRelatorio('${safe}')" ontouchend="event.preventDefault(); adicionarVolRelatorio('${safe}')"
-            class="w-full text-left px-3 py-3 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
-        } else {
-          box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Digite o nome do voluntário e escolha "Usar o nome digitado".</p>';
-        }
-        box.classList.remove('hidden');
-        return;
-      }
+      const escapeNome = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
       if (lista.length === 0) {
-        if (termo) {
-          const safe = termo.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        if (termoRaw) {
+          const oficial = nomeOficialVoluntario(termoRaw);
+          const safe = escapeNome(oficial);
+          const aviso = oficial !== termoRaw
+            ? `<span class="block text-xs text-evg-blue mt-0.5">Será gravado como no cadastro: <strong>${oficial}</strong></span>`
+            : `<span class="block text-xs text-gray-500 mt-0.5">Não está no cadastro — será usado o nome digitado</span>`;
           box.innerHTML = `<button type="button" onmousedown="event.preventDefault(); adicionarVolRelatorio('${safe}')" ontouchend="event.preventDefault(); adicionarVolRelatorio('${safe}')"
-            class="w-full text-left px-3 py-3 text-sm hover:bg-green-50 text-green-800">➕ Usar o nome digitado: <strong>${termo}</strong></button>`;
+            class="w-full text-left px-3 py-3 text-sm hover:bg-green-50 text-green-800">➕ Usar: <strong>${termoRaw}</strong>${aviso}</button>`;
         } else {
-          box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Nenhum voluntário encontrado</p>';
+          box.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">Digite o nome e escolha na lista do cadastro (recomendado).</p>';
         }
         box.classList.remove('hidden');
         return;
       }
 
-      box.innerHTML = lista.slice(0, 30).map(v => {
-        const nomeSafe = (v.nome || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      let html = lista.slice(0, 30).map(v => {
+        const nomeSafe = escapeNome(v.nome);
         return `<button type="button"
                 onmousedown="event.preventDefault(); adicionarVolRelatorio('${nomeSafe}')"
                 ontouchend="event.preventDefault(); adicionarVolRelatorio('${nomeSafe}')"
                 class="w-full text-left px-3 py-3 text-sm hover:bg-evg-light active:bg-evg-light border-b border-gray-100 last:border-0">
-          ${v.nome} <span class="text-xs text-gray-400">${v.projeto_principal ? '• ' + v.projeto_principal : ''}</span>
+          <span class="font-medium">${v.nome}</span>
+          <span class="text-xs text-gray-400">${v.projeto_principal ? '• ' + v.projeto_principal : ''} ${v.funcao_evg ? '• ' + v.funcao_evg : ''}</span>
+          <span class="block text-[10px] text-green-700">✓ nome do cadastro</span>
         </button>`;
       }).join('');
+
+      // Se digitou algo que não é igual a nenhum da lista, oferece também o texto livre (já resolvido)
+      if (termoRaw && !lista.some(v => (v.nome || '').toLowerCase() === termo)) {
+        const oficial = nomeOficialVoluntario(termoRaw);
+        if (!volJaSelecionado(oficial) && !lista.some(v => v.nome === oficial)) {
+          const safe = escapeNome(oficial);
+          html += `<button type="button" onmousedown="event.preventDefault(); adicionarVolRelatorio('${safe}')" ontouchend="event.preventDefault(); adicionarVolRelatorio('${safe}')"
+            class="w-full text-left px-3 py-3 text-sm hover:bg-green-50 text-green-800 border-t">➕ Usar nome digitado / resolvido: <strong>${oficial}</strong></button>`;
+        }
+      }
+
+      box.innerHTML = html;
       box.classList.remove('hidden');
     }
 
     function adicionarVolRelatorio(nome) {
-      if (!nome || relVolSelecionados.includes(nome)) return;
-      relVolSelecionados.push(nome);
+      const oficial = nomeOficialVoluntario(nome);
+      if (!oficial) return;
+      if (volJaSelecionado(oficial)) {
+        const inp = document.getElementById('rel_busca_vol');
+        if (inp) inp.value = '';
+        const box = document.getElementById('rel_busca_resultados');
+        if (box) box.classList.add('hidden');
+        return;
+      }
+      relVolSelecionados.push(oficial);
       renderVolSelecionados();
       const inp = document.getElementById('rel_busca_vol');
       if (inp) inp.value = '';
@@ -2910,7 +2958,7 @@
         marmitas: num('rel_marmitas'),
         cobertores: num('rel_cobertores'),
         agasalhos: num('rel_agasalhos'),
-        voluntarios: [...relVolSelecionados],
+        voluntarios: relVolSelecionados.map(n => nomeOficialVoluntario(n)).filter(Boolean),
         dias_ponto_fe: Array.from(document.querySelectorAll('.rel-ponto-dia:checked')).map(c => c.value),
         melhorar: document.getElementById('rel_melhorar').value.trim(),
         ideias: document.getElementById('rel_ideias').value.trim(),
@@ -3089,7 +3137,13 @@
       document.getElementById('rel_melhorar').value = r.melhorar || '';
       document.getElementById('rel_ideias').value = r.ideias || '';
       document.getElementById('rel_precisam').value = r.precisam || '';
-      relVolSelecionados = parseListaVoluntariosRel(r.voluntarios);
+      relVolSelecionados = parseListaVoluntariosRel(r.voluntarios)
+        .map(n => nomeOficialVoluntario(n))
+        .filter(Boolean);
+      // remove duplicados após normalizar (Eurídice + Eurídice Silva)
+      relVolSelecionados = relVolSelecionados.filter((n, i, arr) =>
+        arr.findIndex(x => (typeof partNomesMesmaPessoa === 'function' ? partNomesMesmaPessoa(x, n) : x === n)) === i
+      );
       renderVolSelecionados();
       atualizarCamposExtrasGrupo();
       const diasPf = Array.isArray(r.dias_ponto_fe) ? r.dias_ponto_fe : [];
