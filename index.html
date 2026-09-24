@@ -143,6 +143,10 @@
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>👥</span> Contagem
           </button>
+          <button onclick="showPage('backup')" data-page="backup"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>💾</span> Backup
+          </button>
         </div>
         <!-- Menu só coordenador -->
         <div id="menu-coordenador" class="hidden">
@@ -224,6 +228,46 @@
         <div class="bg-white rounded-2xl shadow p-5">
           <h2 class="font-semibold text-lg mb-4 text-evg-blue">Últimos cadastros</h2>
           <div id="ultimos-cadastros" class="space-y-2 text-sm"></div>
+        </div>
+      </div>
+
+      <!-- BACKUP / EXPORTAR -->
+      <div id="page-backup" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Backup dos dados</h1>
+        <p class="text-sm text-gray-500 mb-6">Baixe uma cópia de tudo que está no sistema. Recomendado fazer todo mês (ou antes de mudanças grandes).</p>
+
+        <div class="bg-white rounded-xl shadow p-6 max-w-2xl space-y-5">
+          <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <strong>Dica:</strong> guarde o arquivo no Google Drive, computador ou pendrive.
+            Se o site ou o Supabase der problema, você ainda tem os dados.
+          </div>
+
+          <div>
+            <h2 class="font-semibold text-evg-blue mb-1">1. Backup completo (JSON)</h2>
+            <p class="text-sm text-gray-500 mb-3">Um único arquivo com todas as tabelas. É o mais completo para guardar.</p>
+            <button type="button" id="btn-backup-json" onclick="baixarBackupJSON()"
+                    class="bg-evg-blue hover:bg-evg-dark text-white px-5 py-2.5 rounded-lg font-medium text-sm">
+              Baixar backup completo (.json)
+            </button>
+          </div>
+
+          <div class="border-t pt-5">
+            <h2 class="font-semibold text-evg-blue mb-1">2. Planilhas (CSV)</h2>
+            <p class="text-sm text-gray-500 mb-3">Abre no Excel / Google Planilhas. Fotos dos voluntários não entram no CSV (só no JSON).</p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" onclick="baixarBackupCSV('voluntarios')" class="border border-evg-blue text-evg-blue hover:bg-evg-light px-3 py-2 rounded-lg text-sm">Voluntários</button>
+              <button type="button" onclick="baixarBackupCSV('atendimentos')" class="border border-evg-blue text-evg-blue hover:bg-evg-light px-3 py-2 rounded-lg text-sm">Atendimentos</button>
+              <button type="button" onclick="baixarBackupCSV('relatorios_grupos')" class="border border-evg-blue text-evg-blue hover:bg-evg-light px-3 py-2 rounded-lg text-sm">Relatórios grupos</button>
+              <button type="button" onclick="baixarBackupCSV('almas_eventos')" class="border border-evg-blue text-evg-blue hover:bg-evg-light px-3 py-2 rounded-lg text-sm">Almas</button>
+              <button type="button" onclick="baixarBackupCSV('nucleos')" class="border border-evg-blue text-evg-blue hover:bg-evg-light px-3 py-2 rounded-lg text-sm">Núcleos</button>
+              <button type="button" onclick="baixarBackupCSV('contagem_reunioes')" class="border border-evg-blue text-evg-blue hover:bg-evg-light px-3 py-2 rounded-lg text-sm">Contagem</button>
+              <button type="button" onclick="baixarBackupCSV('unisocial_pessoas')" class="border border-evg-blue text-evg-blue hover:bg-evg-light px-3 py-2 rounded-lg text-sm">Unisocial pessoas</button>
+              <button type="button" onclick="baixarBackupCSV('unisocial_retiradas')" class="border border-evg-blue text-evg-blue hover:bg-evg-light px-3 py-2 rounded-lg text-sm">Unisocial retiradas</button>
+              <button type="button" onclick="baixarTodosCSV()" class="bg-gray-800 hover:bg-black text-white px-3 py-2 rounded-lg text-sm">Baixar todos os CSV</button>
+            </div>
+          </div>
+
+          <p id="backup-status" class="text-sm text-gray-500 hidden"></p>
         </div>
       </div>
 
@@ -1792,6 +1836,10 @@
       }
       if (page === 'participacoes') {
         renderParticipacoes();
+      }
+      if (page === 'backup') {
+        const st = document.getElementById('backup-status');
+        if (st) { st.classList.add('hidden'); st.textContent = ''; }
       }
     }
 
@@ -4260,6 +4308,143 @@
       }
       await carregarContagens();
       renderContagem();
+    }
+
+    // ===================== BACKUP / EXPORTAR =====================
+    const BACKUP_TABELAS = [
+      'voluntarios',
+      'atendimentos',
+      'relatorios_grupos',
+      'almas_eventos',
+      'nucleos',
+      'contagem_reunioes',
+      'unisocial_pessoas',
+      'unisocial_retiradas'
+    ];
+
+    function backupSetStatus(msg, isError) {
+      const el = document.getElementById('backup-status');
+      if (!el) return;
+      el.classList.remove('hidden');
+      el.textContent = msg;
+      el.className = 'text-sm ' + (isError ? 'text-red-600' : 'text-green-700');
+    }
+
+    function backupDownloadBlob(filename, content, mime) {
+      const blob = new Blob([content], { type: mime || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    async function backupFetchTabela(table) {
+      const pageSize = 1000;
+      let from = 0;
+      let all = [];
+      while (true) {
+        const { data, error } = await supabaseClient
+          .from(table)
+          .select('*')
+          .range(from, from + pageSize - 1);
+        if (error) throw new Error(table + ': ' + error.message);
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
+    }
+
+    function backupDataHoje() {
+      const d = new Date();
+      const p = (n) => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+        + '_' + p(d.getHours()) + p(d.getMinutes());
+    }
+
+    async function baixarBackupJSON() {
+      const btn = document.getElementById('btn-backup-json');
+      try {
+        if (btn) { btn.disabled = true; btn.textContent = 'Gerando backup...'; }
+        backupSetStatus('Buscando dados no servidor…', false);
+        const payload = {
+          gerado_em: new Date().toISOString(),
+          sistema: 'EVG Cadastro',
+          tabelas: {}
+        };
+        const contagens = {};
+        for (const t of BACKUP_TABELAS) {
+          backupSetStatus('Baixando: ' + t + '…', false);
+          const rows = await backupFetchTabela(t);
+          payload.tabelas[t] = rows;
+          contagens[t] = rows.length;
+        }
+        const nome = 'evg_backup_' + backupDataHoje() + '.json';
+        backupDownloadBlob(nome, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+        const resumo = Object.entries(contagens).map(([k, v]) => k + ': ' + v).join(' · ');
+        backupSetStatus('Backup salvo: ' + nome + ' — ' + resumo, false);
+      } catch (err) {
+        console.error(err);
+        backupSetStatus('Erro ao gerar backup: ' + (err.message || err), true);
+        alert('Erro ao gerar backup: ' + (err.message || err));
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Baixar backup completo (.json)'; }
+      }
+    }
+
+    function backupEscapeCSV(val) {
+      if (val === null || val === undefined) return '';
+      let s;
+      if (typeof val === 'object') s = JSON.stringify(val);
+      else s = String(val);
+      // remove base64 de fotos para CSV não ficar enorme
+      if (s.length > 500 && (s.startsWith('data:image') || s.startsWith('/9j/') || s.startsWith('iVBOR'))) {
+        s = '[foto omitida no CSV]';
+      }
+      if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+
+    function backupRowsToCSV(rows) {
+      if (!rows || rows.length === 0) return 'sem_dados\n';
+      const cols = [...new Set(rows.flatMap(r => Object.keys(r || {})))];
+      const lines = [cols.join(',')];
+      rows.forEach(r => {
+        lines.push(cols.map(c => backupEscapeCSV(r[c])).join(','));
+      });
+      return '\uFEFF' + lines.join('\n'); // BOM para Excel
+    }
+
+    async function baixarBackupCSV(table) {
+      try {
+        backupSetStatus('Baixando ' + table + '…', false);
+        const rows = await backupFetchTabela(table);
+        const nome = 'evg_' + table + '_' + backupDataHoje() + '.csv';
+        backupDownloadBlob(nome, backupRowsToCSV(rows), 'text/csv;charset=utf-8');
+        backupSetStatus(table + ': ' + rows.length + ' registro(s) — arquivo ' + nome, false);
+      } catch (err) {
+        console.error(err);
+        backupSetStatus('Erro: ' + (err.message || err), true);
+        alert('Erro ao baixar CSV: ' + (err.message || err));
+      }
+    }
+
+    async function baixarTodosCSV() {
+      try {
+        backupSetStatus('Baixando todas as planilhas…', false);
+        for (const t of BACKUP_TABELAS) {
+          await baixarBackupCSV(t);
+          await new Promise(r => setTimeout(r, 400));
+        }
+        backupSetStatus('Todos os CSV foram baixados.', false);
+      } catch (err) {
+        backupSetStatus('Erro: ' + (err.message || err), true);
+      }
     }
 
     // ===================== PARTICIPAÇÕES =====================
