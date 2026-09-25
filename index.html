@@ -127,6 +127,10 @@
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>📋</span> Relatórios dos Grupos
           </button>
+          <button onclick="showPage('eventos')" data-page="eventos"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>📅</span> Eventos / Pendências
+          </button>
           <button onclick="showPage('almas')" data-page="almas"
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>✝️</span> Almas / Domingo
@@ -1131,6 +1135,62 @@
         <div id="lista-relatorios-grupos" class="space-y-4"></div>
       </div>
 
+      <!-- EVENTOS / PENDÊNCIAS (só gestão) -->
+      <div id="page-eventos" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Eventos / Pendências</h1>
+        <p class="text-sm text-gray-500 mb-6">Cadastre o dia e o grupo que deve enviar relatório. O sistema cruza com os relatórios já salvos e mostra o que ainda falta.</p>
+
+        <form id="form-evento" class="bg-white rounded-xl shadow p-6 space-y-4 max-w-3xl mb-8">
+          <input type="hidden" id="evento_edit_id" value="">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1">Data do evento *</label>
+              <input type="date" id="evt-data" required class="w-full px-3 py-2 border rounded-lg text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Grupo / projeto *</label>
+              <select id="evt-grupo" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                <option value="">Selecione</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Coordenador responsável</label>
+              <input type="text" id="evt-coordenador" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Nome de quem deve enviar o relatório">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Contato (opcional)</label>
+              <input type="text" id="evt-contato" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="WhatsApp ou e-mail">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium mb-1">Observação</label>
+              <input type="text" id="evt-obs" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ex.: saída no terminal, culto especial…">
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="submit" id="evt-btn-salvar" class="bg-evg-blue hover:bg-evg-dark text-white px-5 py-2.5 rounded-lg text-sm font-medium">Salvar evento</button>
+            <button type="button" onclick="limparFormEvento()" class="border px-4 py-2 rounded-lg text-sm text-gray-600">Limpar</button>
+          </div>
+        </form>
+
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <h2 class="text-lg font-semibold text-evg-blue">Agenda e status</h2>
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="text-sm text-gray-600">Filtrar:</label>
+            <select id="evt-filtro-status" class="px-3 py-2 border rounded-lg text-sm" onchange="renderEventos()">
+              <option value="">Todos</option>
+              <option value="pendente">Só pendentes</option>
+              <option value="enviado">Só enviados</option>
+              <option value="hoje">Hoje</option>
+            </select>
+            <select id="evt-filtro-mes" class="px-3 py-2 border rounded-lg text-sm" onchange="renderEventos()">
+              <option value="">Todos os meses</option>
+            </select>
+          </div>
+        </div>
+        <div id="evt-resumo" class="text-sm text-gray-600 mb-3"></div>
+        <div id="lista-eventos" class="space-y-3"></div>
+      </div>
+
       <!-- ALMAS / DOMINGO (só gestão) -->
       <div id="page-almas" class="page hidden">
         <h1 class="text-2xl font-bold text-evg-blue mb-2">Almas / Domingo</h1>
@@ -1561,6 +1621,7 @@
     let voluntarios = [];
     let atendimentos = [];
     let relatoriosGrupos = [];
+    let eventosAgenda = [];
     let almasRegistros = [];
     let nucleosRegistros = [];
     let nucleoVolSelecionados = [];
@@ -1671,8 +1732,18 @@
       contagens = data || [];
     }
 
+    async function carregarEventos() {
+      const { data, error } = await supabaseClient.from('eventos_agenda').select('*').order('data_evento', { ascending: false });
+      if (error) {
+        console.error('Erro eventos:', error);
+        eventosAgenda = [];
+        return;
+      }
+      eventosAgenda = data || [];
+    }
+
     async function carregarTudo() {
-      await Promise.all([carregarVoluntarios(), carregarAtendimentos(), carregarRelatorios(), carregarAlmas(), carregarNucleos(), carregarUnisocial(), carregarContagens()]);
+      await Promise.all([carregarVoluntarios(), carregarAtendimentos(), carregarRelatorios(), carregarAlmas(), carregarNucleos(), carregarUnisocial(), carregarContagens(), carregarEventos()]);
     }
 
     // ===================== LOGIN =====================
@@ -1905,6 +1976,10 @@
       }
       if (page === 'relatorios-grupos') {
         renderRelatoriosGrupos();
+      }
+      if (page === 'eventos') {
+        initFormEvento();
+        renderEventos();
       }
       if (page === 'almas') {
         initFormAlmas();
@@ -4623,11 +4698,227 @@
       alert('Senha atualizada com sucesso.');
     });
 
+    // ===================== EVENTOS / PENDÊNCIAS =====================
+    function initFormEvento() {
+      const sel = document.getElementById('evt-grupo');
+      if (sel && sel.options.length <= 1) {
+        sel.innerHTML = '<option value="">Selecione</option>' +
+          (typeof PROJETOS !== 'undefined' ? PROJETOS : []).map(p =>
+            `<option value="${p}">${p}</option>`
+          ).join('');
+      }
+      const dataEl = document.getElementById('evt-data');
+      if (dataEl && !dataEl.value) {
+        dataEl.value = new Date().toISOString().slice(0, 10);
+      }
+      const editId = document.getElementById('evento_edit_id');
+      if (editId && !editId.value) {
+        const btn = document.getElementById('evt-btn-salvar');
+        if (btn) btn.textContent = 'Salvar evento';
+      }
+    }
+
+    function limparFormEvento() {
+      const form = document.getElementById('form-evento');
+      if (form) form.reset();
+      const editId = document.getElementById('evento_edit_id');
+      if (editId) editId.value = '';
+      const dataEl = document.getElementById('evt-data');
+      if (dataEl) dataEl.value = new Date().toISOString().slice(0, 10);
+      const btn = document.getElementById('evt-btn-salvar');
+      if (btn) btn.textContent = 'Salvar evento';
+      initFormEvento();
+    }
+
+    function evtNormGrupo(g) {
+      return String(g || '').toLowerCase().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function evtRelatorioEncontrado(evento) {
+      const data = String(evento.data_evento || '').slice(0, 10);
+      const g = evtNormGrupo(evento.grupo);
+      if (!data || !g) return null;
+      return (relatoriosGrupos || []).find(r => {
+        const rd = String(r.data_evento || r.data || '').slice(0, 10);
+        return rd === data && evtNormGrupo(r.grupo) === g;
+      }) || null;
+    }
+
+    function formatDataBR(iso) {
+      if (!iso) return '—';
+      const s = String(iso).slice(0, 10);
+      const p = s.split('-');
+      if (p.length !== 3) return s;
+      return p[2] + '/' + p[1] + '/' + p[0];
+    }
+
+    document.getElementById('form-evento')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = document.getElementById('evt-data').value;
+      const grupo = document.getElementById('evt-grupo').value;
+      const coordenador = (document.getElementById('evt-coordenador').value || '').trim();
+      const contato = (document.getElementById('evt-contato').value || '').trim();
+      const obs = (document.getElementById('evt-obs').value || '').trim();
+      const editId = (document.getElementById('evento_edit_id')?.value || '').trim();
+
+      if (!data || !grupo) {
+        alert('Informe a data e o grupo.');
+        return;
+      }
+
+      const registro = {
+        data_evento: data,
+        grupo,
+        coordenador: coordenador || null,
+        contato: contato || null,
+        observacao: obs || null,
+        registrado_por: usuarioLogado?.nome || null
+      };
+
+      let error;
+      if (editId) {
+        ({ error } = await supabaseClient.from('eventos_agenda').update(registro).eq('id', editId));
+      } else {
+        ({ error } = await supabaseClient.from('eventos_agenda').insert([registro]));
+      }
+      if (error) {
+        alert('Erro ao salvar evento: ' + error.message + '\n\nSe a tabela não existe, rode o SQL de eventos no Supabase.');
+        return;
+      }
+      await carregarEventos();
+      limparFormEvento();
+      renderEventos();
+      alert(editId ? 'Evento atualizado.' : 'Evento cadastrado.');
+    });
+
+    function editarEvento(id) {
+      const ev = eventosAgenda.find(x => x.id === id);
+      if (!ev) return;
+      initFormEvento();
+      document.getElementById('evento_edit_id').value = ev.id;
+      document.getElementById('evt-data').value = String(ev.data_evento || '').slice(0, 10);
+      document.getElementById('evt-grupo').value = ev.grupo || '';
+      document.getElementById('evt-coordenador').value = ev.coordenador || '';
+      document.getElementById('evt-contato').value = ev.contato || '';
+      document.getElementById('evt-obs').value = ev.observacao || '';
+      const btn = document.getElementById('evt-btn-salvar');
+      if (btn) btn.textContent = 'Atualizar evento';
+      document.getElementById('form-evento').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function excluirEvento(id) {
+      if (!id) return;
+      if (!confirm('Excluir este evento da agenda?')) return;
+      const { error } = await supabaseClient.from('eventos_agenda').delete().eq('id', id);
+      if (error) {
+        alert('Erro ao excluir: ' + error.message);
+        return;
+      }
+      await carregarEventos();
+      renderEventos();
+    }
+
+    function renderEventos() {
+      const container = document.getElementById('lista-eventos');
+      const resumo = document.getElementById('evt-resumo');
+      if (!container) return;
+
+      const filtroStatus = document.getElementById('evt-filtro-status')?.value || '';
+      const selMes = document.getElementById('evt-filtro-mes');
+      const hoje = new Date().toISOString().slice(0, 10);
+
+      if (selMes) {
+        const atual = selMes.value;
+        const meses = [...new Set(
+          (eventosAgenda || []).map(e => String(e.data_evento || '').slice(0, 7)).filter(Boolean)
+        )].sort().reverse();
+        const mesAgora = hoje.slice(0, 7);
+        if (!meses.includes(mesAgora)) meses.unshift(mesAgora);
+        selMes.innerHTML = '<option value="">Todos os meses</option>' + meses.map(m =>
+          `<option value="${m}">${typeof mesLabel === 'function' ? mesLabel(m) : m}</option>`
+        ).join('');
+        if (meses.includes(atual) || atual === '') selMes.value = atual;
+      }
+      const filtroMes = selMes?.value || '';
+
+      let lista = [...(eventosAgenda || [])];
+      if (filtroMes) lista = lista.filter(e => String(e.data_evento || '').slice(0, 7) === filtroMes);
+
+      const enriquecida = lista.map(e => {
+        const rel = evtRelatorioEncontrado(e);
+        const data = String(e.data_evento || '').slice(0, 10);
+        let status = 'pendente';
+        if (rel) status = 'enviado';
+        else if (data > hoje) status = 'agendado';
+        return { ...e, _rel: rel, _status: status };
+      });
+
+      let filtrada = enriquecida;
+      if (filtroStatus === 'pendente') filtrada = enriquecida.filter(e => e._status === 'pendente');
+      else if (filtroStatus === 'enviado') filtrada = enriquecida.filter(e => e._status === 'enviado');
+      else if (filtroStatus === 'hoje') filtrada = enriquecida.filter(e => String(e.data_evento || '').slice(0, 10) === hoje);
+
+      filtrada.sort((a, b) => String(b.data_evento).localeCompare(String(a.data_evento)));
+
+      const nPend = enriquecida.filter(e => e._status === 'pendente').length;
+      const nEnv = enriquecida.filter(e => e._status === 'enviado').length;
+      const nAg = enriquecida.filter(e => e._status === 'agendado').length;
+      if (resumo) {
+        resumo.innerHTML = `<strong>${filtrada.length}</strong> evento(s) no filtro ·
+          <span class="text-red-600">${nPend} pendente(s)</span> ·
+          <span class="text-green-700">${nEnv} enviado(s)</span> ·
+          <span class="text-blue-600">${nAg} agendado(s)</span>`;
+      }
+
+      if (filtrada.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 bg-white rounded-xl shadow p-6">Nenhum evento neste filtro. Cadastre acima a data e o grupo.</p>';
+        return;
+      }
+
+      container.innerHTML = filtrada.map(e => {
+        const dataFmt = formatDataBR(e.data_evento);
+        let badge = '';
+        if (e._status === 'enviado') {
+          badge = '<span class="bg-green-50 text-green-800 text-xs px-2 py-1 rounded-full font-medium">✓ Relatório enviado</span>';
+        } else if (e._status === 'agendado') {
+          badge = '<span class="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded-full font-medium">Agendado</span>';
+        } else {
+          badge = '<span class="bg-red-50 text-red-700 text-xs px-2 py-1 rounded-full font-medium">⚠ Pendente — cobrar coordenador</span>';
+        }
+        const relInfo = e._rel
+          ? `<p class="text-xs text-green-700 mt-1">Enviado por: ${e._rel.coordenador || '—'} · alcançados: ${e._rel.alcancadas ?? '—'}</p>`
+          : '';
+        return `
+          <div class="bg-white rounded-xl shadow p-4 border-l-4 ${e._status === 'enviado' ? 'border-green-500' : e._status === 'agendado' ? 'border-blue-400' : 'border-red-400'}">
+            <div class="flex flex-wrap justify-between gap-2">
+              <div>
+                <div class="font-semibold text-evg-blue">${e.grupo || '—'} — ${dataFmt}</div>
+                <div class="text-sm text-gray-600 mt-0.5">
+                  ${e.coordenador ? 'Resp.: <strong>' + e.coordenador + '</strong>' : 'Sem coordenador informado'}
+                  ${e.contato ? ' · ' + e.contato : ''}
+                </div>
+                ${e.observacao ? `<div class="text-xs text-gray-500 mt-1">${e.observacao}</div>` : ''}
+                ${relInfo}
+              </div>
+              <div class="flex flex-col items-end gap-2">
+                ${badge}
+                <div class="flex gap-2 text-sm">
+                  <button type="button" onclick="editarEvento('${e.id}')" class="text-evg-blue hover:underline">Editar</button>
+                  <button type="button" onclick="excluirEvento('${e.id}')" class="text-red-600 hover:underline">Excluir</button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
     // ===================== BACKUP / EXPORTAR =====================
     const BACKUP_TABELAS = [
       'voluntarios',
       'atendimentos',
       'relatorios_grupos',
+      'eventos_agenda',
       'almas_eventos',
       'nucleos',
       'contagem_reunioes',
