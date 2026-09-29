@@ -1381,10 +1381,11 @@
               <select id="uni-filtro-status" class="px-3 py-2 border rounded-lg text-sm" onchange="renderUnisocialLista()">
                 <option value="todos">Todos</option>
                 <option value="retiraram">Só quem retirou (verde)</option>
+                <option value="faltaram">Só não compareceram (vermelho)</option>
                 <option value="nao_retiraram">Só pendentes (cinza)</option>
               </select>
             </div>
-            <p class="text-xs text-gray-500 pb-2">Verde = você clicou em &quot;Registrar retirada&quot;. Cinza = ainda não. A data do cadastro sozinha não muda a cor.</p>
+            <p class="text-xs text-gray-500 pb-2">Verde = retirou · Vermelho = não compareceu · Cinza = ainda não marcado. Use a data do evento para o dia da entrega.</p>
           </div>
         </div>
 
@@ -3980,15 +3981,41 @@
       return String(s || '').replace(/\D/g, '');
     }
 
-    function pessoaRetirouNaData(pessoaId, isoData) {
-      if (!isoData) return false;
-      return unisocialRetiradas.some(r =>
+    function isRegistroFalta(r) {
+      return String(r && r.observacao || '').indexOf('[FALTOU]') === 0;
+    }
+
+    function registrosDaPessoaNaData(pessoaId, isoData) {
+      if (!isoData) return [];
+      return unisocialRetiradas.filter(r =>
         r.pessoa_id === pessoaId && String(r.data_retirada).slice(0, 10) === isoData
       );
     }
 
+    // Situação no dia (ou geral se sem data): 'retirou' | 'faltou' | 'pendente'
+    function statusUnisocialPessoa(pessoaId, isoData) {
+      if (isoData) {
+        const regs = registrosDaPessoaNaData(pessoaId, isoData);
+        if (regs.some(r => !isRegistroFalta(r))) return 'retirou';
+        if (regs.some(r => isRegistroFalta(r))) return 'faltou';
+        return 'pendente';
+      }
+      // Sem data: olha o registro mais recente
+      const rets = retiradasDaPessoa(pessoaId);
+      if (!rets.length) return 'pendente';
+      return isRegistroFalta(rets[0]) ? 'faltou' : 'retirou';
+    }
+
+    function pessoaRetirouNaData(pessoaId, isoData) {
+      return statusUnisocialPessoa(pessoaId, isoData) === 'retirou';
+    }
+
+    function pessoaFaltouNaData(pessoaId, isoData) {
+      return statusUnisocialPessoa(pessoaId, isoData) === 'faltou';
+    }
+
     function pessoaJaRetirouAlguma(pessoaId) {
-      return unisocialRetiradas.some(r => r.pessoa_id === pessoaId);
+      return unisocialRetiradas.some(r => r.pessoa_id === pessoaId && !isRegistroFalta(r));
     }
 
     function renderUnisocialLista() {
@@ -4004,7 +4031,6 @@
 
       let lista = [...unisocialPessoas];
 
-      // Nome (sem acento) OU celular (só números)
       if (buscaRaw) {
         lista = lista.filter(p => {
           const nomeOk = busca && normalizarTextoUni(p.nome).includes(busca);
@@ -4013,44 +4039,39 @@
         });
       }
 
-      // Data: cadastrados para o evento OU que retiraram no dia
       if (filtroData) {
-        const idsRetiradaDia = new Set(
+        const idsDia = new Set(
           unisocialRetiradas
             .filter(r => String(r.data_retirada).slice(0, 10) === filtroData)
             .map(r => r.pessoa_id)
         );
         lista = lista.filter(p =>
-          String(p.data_evento || '').slice(0, 10) === filtroData || idsRetiradaDia.has(p.id)
+          String(p.data_evento || '').slice(0, 10) === filtroData || idsDia.has(p.id)
         );
       }
 
-      // Já retirou / ainda não
       if (filtroStatus === 'retiraram') {
-        lista = lista.filter(p =>
-          filtroData ? pessoaRetirouNaData(p.id, filtroData) : pessoaJaRetirouAlguma(p.id)
-        );
+        lista = lista.filter(p => statusUnisocialPessoa(p.id, filtroData || null) === 'retirou');
+      } else if (filtroStatus === 'faltaram') {
+        lista = lista.filter(p => statusUnisocialPessoa(p.id, filtroData || null) === 'faltou');
       } else if (filtroStatus === 'nao_retiraram') {
-        lista = lista.filter(p =>
-          filtroData ? !pessoaRetirouNaData(p.id, filtroData) : !pessoaJaRetirouAlguma(p.id)
-        );
+        lista = lista.filter(p => statusUnisocialPessoa(p.id, filtroData || null) === 'pendente');
       }
 
       lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
 
-      const qtdRetirou = lista.filter(p =>
-        filtroData ? pessoaRetirouNaData(p.id, filtroData) : pessoaJaRetirouAlguma(p.id)
-      ).length;
-      const qtdNao = lista.length - qtdRetirou;
+      const qtdRetirou = lista.filter(p => statusUnisocialPessoa(p.id, filtroData || null) === 'retirou').length;
+      const qtdFaltou = lista.filter(p => statusUnisocialPessoa(p.id, filtroData || null) === 'faltou').length;
+      const qtdPend = lista.length - qtdRetirou - qtdFaltou;
 
       if (resumo) {
         let txt = `<strong>Mostrando:</strong> ${lista.length}`;
         if (filtroData) txt += ` · dia ${formatDataBR(filtroData)}`;
         if (buscaRaw) txt += ` · busca "${buscaRaw}"`;
-        if (filtroStatus === 'retiraram') txt += ' · só quem já retirou';
-        if (filtroStatus === 'nao_retiraram') txt += ' · só quem ainda não retirou';
         if (filtroStatus === 'todos' && lista.length) {
-          txt += ` · <span class="text-green-700 font-medium">${qtdRetirou} retiraram</span> · <span class="text-amber-700 font-medium">${qtdNao} pendentes</span>`;
+          txt += ` · <span class="text-green-700 font-medium">${qtdRetirou} retiraram</span>`;
+          txt += ` · <span class="text-red-700 font-medium">${qtdFaltou} faltaram</span>`;
+          txt += ` · <span class="text-gray-600 font-medium">${qtdPend} pendentes</span>`;
         }
         resumo.innerHTML = txt;
       }
@@ -4064,34 +4085,37 @@
 
       container.innerHTML = lista.map(p => {
         const rets = retiradasDaPessoa(p.id);
-        const ultima = rets[0];
-        // Cor só muda quando VOCÊ marca a retirada (não usa data do evento automaticamente)
-        const retirouNoDia = filtroData
-          ? pessoaRetirouNaData(p.id, filtroData)
-          : pessoaJaRetirouAlguma(p.id);
-        const hist = rets.slice(0, 5).map(r => formatDataBR(r.data_retirada)).join(', ') || 'Nenhuma ainda';
+        const status = statusUnisocialPessoa(p.id, filtroData || null);
+        const hist = rets.slice(0, 5).map(r => {
+          const d = formatDataBR(r.data_retirada);
+          return isRegistroFalta(r) ? d + ' (faltou)' : d;
+        }).join(', ') || 'Nenhuma ainda';
         const nasc = formatDataBR(p.nascimento);
 
-        // Só 2 estados visuais: verde (marcado) ou cinza (pendente)
-        let borda, fundo, badge, alerta, btnRetirada;
-        if (retirouNoDia) {
+        let borda, fundo, badge, alerta, botoesStatus;
+        if (status === 'retirou') {
           borda = 'border-green-500';
           fundo = 'bg-green-50';
-          const dataBadge = filtroData ? formatDataBR(filtroData) : (ultima ? formatDataBR(ultima.data_retirada) : '');
-          badge = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-600 text-white">✅ Retirou${dataBadge ? ' · ' + dataBadge : ''}</span>`;
-          alerta = `<div class="mt-2 text-sm bg-green-100 text-green-900 border border-green-300 rounded-lg px-3 py-2">Cesta marcada como entregue. Se foi erro, use <strong>Desfazer retirada</strong>.</div>`;
-          btnRetirada = `<button type="button" onclick="desfazerRetiradaUni('${p.id}')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1.5 rounded-lg">Desfazer retirada</button>`;
+          badge = '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-600 text-white">✅ Retirou</span>';
+          alerta = '<div class="mt-2 text-sm bg-green-100 text-green-900 border border-green-300 rounded-lg px-3 py-2">Cesta entregue. Se errou, use <strong>Desfazer</strong>.</div>';
+          botoesStatus = `
+            <button type="button" onclick="desfazerRetiradaUni('${p.id}')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1.5 rounded-lg">Desfazer</button>`;
+        } else if (status === 'faltou') {
+          borda = 'border-red-500';
+          fundo = 'bg-red-50';
+          badge = '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-600 text-white">❌ Não compareceu</span>';
+          alerta = '<div class="mt-2 text-sm bg-red-100 text-red-900 border border-red-300 rounded-lg px-3 py-2">Marcado como <strong>não compareceu</strong>. Se veio depois, registre a retirada ou desfaça.</div>';
+          botoesStatus = `
+            <button type="button" onclick="registrarRetiradaUni('${p.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">Registrar retirada</button>
+            <button type="button" onclick="desfazerRetiradaUni('${p.id}')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1.5 rounded-lg">Desfazer</button>`;
         } else {
           borda = 'border-gray-300';
           fundo = 'bg-white';
-          badge = '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">⏳ Pendente — não retirou</span>';
-          // Aviso só texto se já retirou em OUTRO dia (não muda a cor)
-          if (ultima) {
-            alerta = `<div class="mt-2 text-sm text-gray-600 border border-gray-200 rounded-lg px-3 py-2">Histórico: última retirada em <strong>${formatDataBR(ultima.data_retirada)}</strong>. Ainda <strong>não</strong> marcada neste filtro.</div>`;
-          } else {
-            alerta = `<div class="mt-2 text-sm text-gray-500">Aguardando entrega. Clique em <strong>Registrar retirada</strong> quando pegar a cesta.</div>`;
-          }
-          btnRetirada = `<button type="button" onclick="registrarRetiradaUni('${p.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">Registrar retirada</button>`;
+          badge = '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">⏳ Pendente</span>';
+          alerta = '<div class="mt-2 text-sm text-gray-500">Aguardando. Marque se <strong>retirou</strong> ou se <strong>não compareceu</strong>.</div>';
+          botoesStatus = `
+            <button type="button" onclick="registrarRetiradaUni('${p.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">Registrar retirada</button>
+            <button type="button" onclick="registrarFaltaUni('${p.id}')" class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1.5 rounded-lg">Não compareceu</button>`;
         }
 
         return `
@@ -4110,10 +4134,10 @@
                 ${p.celular ? `<div class="text-sm text-gray-700">📱 ${p.celular}</div>` : ''}
                 <div class="text-sm text-gray-600">${p.endereco || ''}${p.numero ? ', nº ' + p.numero : ''}</div>
                 <div class="text-sm text-gray-500">Pessoas na casa: ${p.qtd_pessoas != null ? p.qtd_pessoas : '—'}</div>
-                <div class="text-xs text-gray-400 mt-1">Histórico de retiradas: ${hist}</div>
+                <div class="text-xs text-gray-400 mt-1">Histórico: ${hist}</div>
                 ${alerta}
                 <div class="flex flex-wrap gap-2 mt-3">
-                  ${btnRetirada}
+                  ${botoesStatus}
                   <button type="button" onclick="editarUnisocial('${p.id}')" class="text-evg-blue text-sm hover:underline px-2">Editar</button>
                   ${isGestao ? `<button type="button" onclick="excluirUnisocial('${p.id}')" class="text-red-600 text-sm hover:underline px-2">Excluir</button>` : ''}
                 </div>
@@ -4237,22 +4261,23 @@
     async function registrarRetiradaUni(pessoaId) {
       const p = unisocialPessoas.find(x => x.id === pessoaId);
       if (!p) return;
-      const rets = retiradasDaPessoa(pessoaId);
-      const ultima = rets[0];
-      let dataPadrao = document.getElementById('uni-filtro-data')?.value || new Date().toISOString().slice(0, 10);
-      let msg = `Registrar retirada de "${p.nome}"?\nData (AAAA-MM-DD):`;
-      if (ultima) {
-        msg = `Última retirada de "${p.nome}": ${formatDataBR(ultima.data_retirada)}.\n\nInforme a data desta retirada (AAAA-MM-DD):`;
-      }
-      const data = prompt(msg, dataPadrao);
+      let dataPadrao = document.getElementById('uni-filtro-data')?.value || p.data_evento || new Date().toISOString().slice(0, 10);
+      if (dataPadrao) dataPadrao = String(dataPadrao).slice(0, 10);
+      const data = prompt('Registrar RETIRADA de "' + p.nome + '"\nData (AAAA-MM-DD):', dataPadrao);
       if (!data) return;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
-        alert('Data inválida. Use o formato AAAA-MM-DD (ex.: 2026-09-13).');
+        alert('Data inválida. Use AAAA-MM-DD (ex.: 2026-09-13).');
         return;
+      }
+      // Remove marcações do mesmo dia (falta ou retirada duplicada)
+      const antigos = registrosDaPessoaNaData(pessoaId, data);
+      for (const r of antigos) {
+        await supabaseClient.from('unisocial_retiradas').delete().eq('id', r.id);
       }
       const { error } = await supabaseClient.from('unisocial_retiradas').insert([{
         pessoa_id: pessoaId,
         data_retirada: data,
+        observacao: null,
         registrado_por: usuarioLogado?.nome || null
       }]);
       if (error) {
@@ -4265,34 +4290,66 @@
       alert('Retirada registrada em ' + formatDataBR(data));
     }
 
+    async function registrarFaltaUni(pessoaId) {
+      const p = unisocialPessoas.find(x => x.id === pessoaId);
+      if (!p) return;
+      let dataPadrao = document.getElementById('uni-filtro-data')?.value || p.data_evento || new Date().toISOString().slice(0, 10);
+      if (dataPadrao) dataPadrao = String(dataPadrao).slice(0, 10);
+      const data = prompt('Marcar NÃO COMPARECEU — "' + p.nome + '"\nData do evento (AAAA-MM-DD):', dataPadrao);
+      if (!data) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+        alert('Data inválida. Use AAAA-MM-DD (ex.: 2026-09-13).');
+        return;
+      }
+      const antigos = registrosDaPessoaNaData(pessoaId, data);
+      for (const r of antigos) {
+        await supabaseClient.from('unisocial_retiradas').delete().eq('id', r.id);
+      }
+      const { error } = await supabaseClient.from('unisocial_retiradas').insert([{
+        pessoa_id: pessoaId,
+        data_retirada: data,
+        observacao: '[FALTOU] Não compareceu na entrega',
+        registrado_por: usuarioLogado?.nome || null
+      }]);
+      if (error) {
+        alert('Erro ao marcar falta: ' + error.message);
+        return;
+      }
+      await carregarUnisocial();
+      if (document.getElementById('uni-filtro-data')) document.getElementById('uni-filtro-data').value = data;
+      renderUnisocialLista();
+      alert('Marcado como não compareceu em ' + formatDataBR(data));
+    }
+
     async function desfazerRetiradaUni(pessoaId) {
       const p = unisocialPessoas.find(x => x.id === pessoaId);
       if (!p) return;
       const filtroData = document.getElementById('uni-filtro-data')?.value || '';
-      let alvo = null;
+      let alvos = [];
       if (filtroData) {
-        alvo = unisocialRetiradas.find(r =>
-          r.pessoa_id === pessoaId && String(r.data_retirada).slice(0, 10) === filtroData
-        );
+        alvos = registrosDaPessoaNaData(pessoaId, filtroData);
       }
-      if (!alvo) {
+      if (!alvos.length) {
         const rets = retiradasDaPessoa(pessoaId);
-        alvo = rets[0] || null;
+        if (rets[0]) alvos = [rets[0]];
       }
-      if (!alvo) {
-        alert('Não há retirada para desfazer.');
+      if (!alvos.length) {
+        alert('Não há marcação para desfazer.');
         return;
       }
-      const dataTxt = formatDataBR(alvo.data_retirada);
-      if (!confirm('Desfazer a retirada de "' + (p.nome || '') + '" em ' + dataTxt + '?\nA pessoa volta para pendente (cinza).')) return;
-      const { error } = await supabaseClient.from('unisocial_retiradas').delete().eq('id', alvo.id);
-      if (error) {
-        alert('Erro ao desfazer: ' + error.message);
-        return;
+      const dataTxt = formatDataBR(alvos[0].data_retirada);
+      const tipo = isRegistroFalta(alvos[0]) ? 'não compareceu' : 'retirada';
+      if (!confirm('Desfazer "' + tipo + '" de "' + (p.nome || '') + '" em ' + dataTxt + '?\nVolta para pendente (cinza).')) return;
+      for (const a of alvos) {
+        const { error } = await supabaseClient.from('unisocial_retiradas').delete().eq('id', a.id);
+        if (error) {
+          alert('Erro ao desfazer: ' + error.message);
+          return;
+        }
       }
       await carregarUnisocial();
       renderUnisocialLista();
-      alert('Retirada desfeita. Status: pendente.');
+      alert('Desfeito. Status: pendente.');
     }
 
     function downloadUnisocialPDF() {
@@ -4310,9 +4367,11 @@
       }
       const filtroStatus = document.getElementById('uni-filtro-status')?.value || 'todos';
       if (filtroStatus === 'retiraram') {
-        lista = lista.filter(p => filtroData ? pessoaRetirouNaData(p.id, filtroData) : pessoaJaRetirouAlguma(p.id));
+        lista = lista.filter(p => statusUnisocialPessoa(p.id, filtroData || null) === 'retirou');
+      } else if (filtroStatus === 'faltaram') {
+        lista = lista.filter(p => statusUnisocialPessoa(p.id, filtroData || null) === 'faltou');
       } else if (filtroStatus === 'nao_retiraram') {
-        lista = lista.filter(p => filtroData ? !pessoaRetirouNaData(p.id, filtroData) : !pessoaJaRetirouAlguma(p.id));
+        lista = lista.filter(p => statusUnisocialPessoa(p.id, filtroData || null) === 'pendente');
       }
 
       if (filtroData) {
