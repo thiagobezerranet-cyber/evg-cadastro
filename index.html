@@ -1369,10 +1369,23 @@
         </div>
 
         <!-- Busca -->
-        <div class="bg-white rounded-xl shadow p-4 mb-6 max-w-3xl">
-          <label class="block text-sm font-medium mb-1">Buscar cadastrado (nome)</label>
-          <input type="text" id="uni-busca" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Digite o nome..." oninput="renderUnisocialLista()">
-          <p class="text-xs text-gray-500 mt-1">Se a pessoa já existir, aparece abaixo com as datas em que já retirou.</p>
+        <div class="bg-white rounded-xl shadow p-4 mb-6 max-w-3xl space-y-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Buscar cadastrado (nome ou celular)</label>
+            <input type="text" id="uni-busca" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Nome ou número do celular..." oninput="renderUnisocialLista()">
+            <p class="text-xs text-gray-500 mt-1">Ignora acentos. Celular encontra mesmo com ( ) ou traço. Digite ao menos 4 dígitos do número.</p>
+          </div>
+          <div class="flex flex-wrap gap-3 items-end">
+            <div>
+              <label class="block text-sm font-medium mb-1">Situação da retirada</label>
+              <select id="uni-filtro-status" class="px-3 py-2 border rounded-lg text-sm" onchange="renderUnisocialLista()">
+                <option value="todos">Todos</option>
+                <option value="retiraram">Já retiraram</option>
+                <option value="nao_retiraram">Ainda não retiraram</option>
+              </select>
+            </div>
+            <p class="text-xs text-gray-500 pb-2">Com a data do evento (abaixo) preenchida, o filtro vale para aquele dia.</p>
+          </div>
         </div>
 
         <!-- Formulário -->
@@ -3954,20 +3967,53 @@
       return String(iso).slice(0, 10).split('-').reverse().join('/');
     }
 
+    function normalizarTextoUni(s) {
+      return String(s || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function soDigitosUni(s) {
+      return String(s || '').replace(/\D/g, '');
+    }
+
+    function pessoaRetirouNaData(pessoaId, isoData) {
+      if (!isoData) return false;
+      return unisocialRetiradas.some(r =>
+        r.pessoa_id === pessoaId && String(r.data_retirada).slice(0, 10) === isoData
+      );
+    }
+
+    function pessoaJaRetirouAlguma(pessoaId) {
+      return unisocialRetiradas.some(r => r.pessoa_id === pessoaId);
+    }
+
     function renderUnisocialLista() {
       const container = document.getElementById('lista-unisocial');
       const resumo = document.getElementById('uni-resumo');
       if (!container) return;
 
-      const busca = (document.getElementById('uni-busca')?.value || '').toLowerCase().trim();
+      const buscaRaw = (document.getElementById('uni-busca')?.value || '').trim();
+      const busca = normalizarTextoUni(buscaRaw);
+      const buscaDigitos = soDigitosUni(buscaRaw);
       const filtroData = document.getElementById('uni-filtro-data')?.value || '';
+      const filtroStatus = document.getElementById('uni-filtro-status')?.value || 'todos';
 
       let lista = [...unisocialPessoas];
-      if (busca) {
-        lista = lista.filter(p => (p.nome || '').toLowerCase().includes(busca));
+
+      // Nome (sem acento) OU celular (só números)
+      if (buscaRaw) {
+        lista = lista.filter(p => {
+          const nomeOk = busca && normalizarTextoUni(p.nome).includes(busca);
+          const celOk = buscaDigitos.length >= 4 && soDigitosUni(p.celular).includes(buscaDigitos);
+          return nomeOk || celOk;
+        });
       }
 
-      // Filtro de data: cadastrados para o evento OU que retiraram no dia
+      // Data: cadastrados para o evento OU que retiraram no dia
       if (filtroData) {
         const idsRetiradaDia = new Set(
           unisocialRetiradas
@@ -3979,16 +4025,38 @@
         );
       }
 
-      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+      // Já retirou / ainda não
+      if (filtroStatus === 'retiraram') {
+        lista = lista.filter(p =>
+          filtroData ? pessoaRetirouNaData(p.id, filtroData) : pessoaJaRetirouAlguma(p.id)
+        );
+      } else if (filtroStatus === 'nao_retiraram') {
+        lista = lista.filter(p =>
+          filtroData ? !pessoaRetirouNaData(p.id, filtroData) : !pessoaJaRetirouAlguma(p.id)
+        );
+      }
+
+      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+
+      const qtdRetirou = lista.filter(p =>
+        filtroData ? pessoaRetirouNaData(p.id, filtroData) : pessoaJaRetirouAlguma(p.id)
+      ).length;
+      const qtdNao = lista.length - qtdRetirou;
 
       if (resumo) {
-        resumo.innerHTML = filtroData
-          ? `<strong>Dia ${formatDataBR(filtroData)}:</strong> ${lista.length} pessoa(s) com retirada registrada`
-          : `<strong>Cadastrados:</strong> ${lista.length}` + (busca ? ` (filtro: "${busca}")` : '');
+        let txt = `<strong>Mostrando:</strong> ${lista.length}`;
+        if (filtroData) txt += ` · dia ${formatDataBR(filtroData)}`;
+        if (buscaRaw) txt += ` · busca "${buscaRaw}"`;
+        if (filtroStatus === 'retiraram') txt += ' · só quem já retirou';
+        if (filtroStatus === 'nao_retiraram') txt += ' · só quem ainda não retirou';
+        if (filtroStatus === 'todos' && lista.length) {
+          txt += ` · <span class="text-green-700 font-medium">${qtdRetirou} retiraram</span> · <span class="text-amber-700 font-medium">${qtdNao} pendentes</span>`;
+        }
+        resumo.innerHTML = txt;
       }
 
       if (lista.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 bg-white rounded-xl shadow p-6">Nenhuma pessoa encontrada.</p>';
+        container.innerHTML = '<p class="text-gray-500 bg-white rounded-xl shadow p-6">Nenhuma pessoa encontrada. Tente o primeiro nome, sem acento, ou 4+ dígitos do celular. Se a data do evento estiver preenchida, limpe-a para ver todos.</p>';
         return;
       }
 
@@ -3997,20 +4065,41 @@
       container.innerHTML = lista.map(p => {
         const rets = retiradasDaPessoa(p.id);
         const ultima = rets[0];
+        const retirouHoje = filtroData ? pessoaRetirouNaData(p.id, filtroData) : false;
+        const jaRetirou = pessoaJaRetirouAlguma(p.id);
         const hist = rets.slice(0, 5).map(r => formatDataBR(r.data_retirada)).join(', ') || 'Nenhuma retirada ainda';
         const nasc = formatDataBR(p.nascimento);
-        const alerta = ultima
-          ? `<div class="mt-2 text-sm bg-amber-50 text-amber-900 border border-amber-200 rounded-lg px-3 py-2">Já retirou. Última: <strong>${formatDataBR(ultima.data_retirada)}</strong> — confira e decidam se entregam de novo.</div>`
-          : `<div class="mt-2 text-sm text-green-700">Sem retirada registrada ainda.</div>`;
+
+        let borda = 'border-gray-300';
+        let fundo = 'bg-white';
+        let badge = '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Sem retirada</span>';
+        if (retirouHoje) {
+          borda = 'border-green-500';
+          fundo = 'bg-green-50';
+          badge = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-600 text-white">Retirou em ${formatDataBR(filtroData)}</span>`;
+        } else if (jaRetirou) {
+          borda = 'border-amber-400';
+          fundo = 'bg-amber-50';
+          badge = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500 text-white">Já retirou · ${formatDataBR(ultima.data_retirada)}</span>`;
+        }
+
+        const alerta = retirouHoje
+          ? `<div class="mt-2 text-sm bg-green-100 text-green-900 border border-green-300 rounded-lg px-3 py-2">✅ Já retirou nesta data (${formatDataBR(filtroData)}).</div>`
+          : (ultima
+            ? `<div class="mt-2 text-sm bg-amber-50 text-amber-900 border border-amber-200 rounded-lg px-3 py-2">Já retirou antes. Última: <strong>${formatDataBR(ultima.data_retirada)}</strong> — confira antes de entregar de novo.</div>`
+            : `<div class="mt-2 text-sm text-green-700">Sem retirada registrada ainda.</div>`);
 
         return `
-          <div class="bg-white rounded-xl shadow p-4 border-l-4 border-evg-blue">
+          <div class="${fundo} rounded-xl shadow p-4 border-l-4 ${borda}">
             <div class="flex gap-3">
               <div class="w-16 h-16 rounded-full bg-gray-200 overflow-hidden shrink-0">
-                ${p.foto ? `<img src="${p.foto}" class="w-full h-full object-cover">` : '<div class="w-full h-full flex items-center justify-center text-xs text-gray-400">Sem foto</div>'}
+                ${p.foto ? `<img src="${p.foto}" class="w-full h-full object-cover" alt="">` : '<div class="w-full h-full flex items-center justify-center text-xs text-gray-400">Sem foto</div>'}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="font-semibold text-evg-blue">${p.nome || '—'}</div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="font-semibold text-evg-blue">${p.nome || '—'}</div>
+                  ${badge}
+                </div>
                 <div class="text-sm text-gray-600">Nasc.: ${nasc} ${p.profissao ? '• ' + p.profissao : ''}</div>
                 <div class="text-sm text-evg-blue font-medium">Evento: ${p.data_evento ? formatDataBR(p.data_evento) : '—'}</div>
                 ${p.celular ? `<div class="text-sm text-gray-700">📱 ${p.celular}</div>` : ''}
@@ -4019,7 +4108,7 @@
                 <div class="text-xs text-gray-400 mt-1">Retiradas: ${hist}</div>
                 ${alerta}
                 <div class="flex flex-wrap gap-2 mt-3">
-                  <button type="button" onclick="registrarRetiradaUni('${p.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">Registrar retirada hoje</button>
+                  <button type="button" onclick="registrarRetiradaUni('${p.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">Registrar retirada</button>
                   <button type="button" onclick="editarUnisocial('${p.id}')" class="text-evg-blue text-sm hover:underline px-2">Editar</button>
                   ${isGestao ? `<button type="button" onclick="excluirUnisocial('${p.id}')" class="text-red-600 text-sm hover:underline px-2">Excluir</button>` : ''}
                 </div>
@@ -4174,8 +4263,22 @@
     function downloadUnisocialPDF() {
       const filtroData = document.getElementById('uni-filtro-data')?.value || '';
       let lista = [...unisocialPessoas];
-      const busca = (document.getElementById('uni-busca')?.value || '').toLowerCase().trim();
-      if (busca) lista = lista.filter(p => (p.nome || '').toLowerCase().includes(busca));
+      const buscaRaw = (document.getElementById('uni-busca')?.value || '').trim();
+      const busca = normalizarTextoUni(buscaRaw);
+      const buscaDigitos = soDigitosUni(buscaRaw);
+      if (buscaRaw) {
+        lista = lista.filter(p => {
+          const nomeOk = busca && normalizarTextoUni(p.nome).includes(busca);
+          const celOk = buscaDigitos.length >= 4 && soDigitosUni(p.celular).includes(buscaDigitos);
+          return nomeOk || celOk;
+        });
+      }
+      const filtroStatus = document.getElementById('uni-filtro-status')?.value || 'todos';
+      if (filtroStatus === 'retiraram') {
+        lista = lista.filter(p => filtroData ? pessoaRetirouNaData(p.id, filtroData) : pessoaJaRetirouAlguma(p.id));
+      } else if (filtroStatus === 'nao_retiraram') {
+        lista = lista.filter(p => filtroData ? !pessoaRetirouNaData(p.id, filtroData) : !pessoaJaRetirouAlguma(p.id));
+      }
 
       if (filtroData) {
         const ids = new Set(
