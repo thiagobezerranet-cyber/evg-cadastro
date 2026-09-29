@@ -1380,11 +1380,11 @@
               <label class="block text-sm font-medium mb-1">Situação da retirada</label>
               <select id="uni-filtro-status" class="px-3 py-2 border rounded-lg text-sm" onchange="renderUnisocialLista()">
                 <option value="todos">Todos</option>
-                <option value="retiraram">Já retiraram</option>
-                <option value="nao_retiraram">Ainda não retiraram</option>
+                <option value="retiraram">Só quem retirou (verde)</option>
+                <option value="nao_retiraram">Só pendentes (cinza)</option>
               </select>
             </div>
-            <p class="text-xs text-gray-500 pb-2">Com a data do evento (abaixo) preenchida, o filtro vale para aquele dia.</p>
+            <p class="text-xs text-gray-500 pb-2">Verde = você clicou em &quot;Registrar retirada&quot;. Cinza = ainda não. A data do cadastro sozinha não muda a cor.</p>
           </div>
         </div>
 
@@ -4065,29 +4065,34 @@
       container.innerHTML = lista.map(p => {
         const rets = retiradasDaPessoa(p.id);
         const ultima = rets[0];
-        const retirouHoje = filtroData ? pessoaRetirouNaData(p.id, filtroData) : false;
-        const jaRetirou = pessoaJaRetirouAlguma(p.id);
-        const hist = rets.slice(0, 5).map(r => formatDataBR(r.data_retirada)).join(', ') || 'Nenhuma retirada ainda';
+        // Cor só muda quando VOCÊ marca a retirada (não usa data do evento automaticamente)
+        const retirouNoDia = filtroData
+          ? pessoaRetirouNaData(p.id, filtroData)
+          : pessoaJaRetirouAlguma(p.id);
+        const hist = rets.slice(0, 5).map(r => formatDataBR(r.data_retirada)).join(', ') || 'Nenhuma ainda';
         const nasc = formatDataBR(p.nascimento);
 
-        let borda = 'border-gray-300';
-        let fundo = 'bg-white';
-        let badge = '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Sem retirada</span>';
-        if (retirouHoje) {
+        // Só 2 estados visuais: verde (marcado) ou cinza (pendente)
+        let borda, fundo, badge, alerta, btnRetirada;
+        if (retirouNoDia) {
           borda = 'border-green-500';
           fundo = 'bg-green-50';
-          badge = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-600 text-white">Retirou em ${formatDataBR(filtroData)}</span>`;
-        } else if (jaRetirou) {
-          borda = 'border-amber-400';
-          fundo = 'bg-amber-50';
-          badge = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500 text-white">Já retirou · ${formatDataBR(ultima.data_retirada)}</span>`;
+          const dataBadge = filtroData ? formatDataBR(filtroData) : (ultima ? formatDataBR(ultima.data_retirada) : '');
+          badge = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-600 text-white">✅ Retirou${dataBadge ? ' · ' + dataBadge : ''}</span>`;
+          alerta = `<div class="mt-2 text-sm bg-green-100 text-green-900 border border-green-300 rounded-lg px-3 py-2">Cesta marcada como entregue. Se foi erro, use <strong>Desfazer retirada</strong>.</div>`;
+          btnRetirada = `<button type="button" onclick="desfazerRetiradaUni('${p.id}')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1.5 rounded-lg">Desfazer retirada</button>`;
+        } else {
+          borda = 'border-gray-300';
+          fundo = 'bg-white';
+          badge = '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">⏳ Pendente — não retirou</span>';
+          // Aviso só texto se já retirou em OUTRO dia (não muda a cor)
+          if (ultima) {
+            alerta = `<div class="mt-2 text-sm text-gray-600 border border-gray-200 rounded-lg px-3 py-2">Histórico: última retirada em <strong>${formatDataBR(ultima.data_retirada)}</strong>. Ainda <strong>não</strong> marcada neste filtro.</div>`;
+          } else {
+            alerta = `<div class="mt-2 text-sm text-gray-500">Aguardando entrega. Clique em <strong>Registrar retirada</strong> quando pegar a cesta.</div>`;
+          }
+          btnRetirada = `<button type="button" onclick="registrarRetiradaUni('${p.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">Registrar retirada</button>`;
         }
-
-        const alerta = retirouHoje
-          ? `<div class="mt-2 text-sm bg-green-100 text-green-900 border border-green-300 rounded-lg px-3 py-2">✅ Já retirou nesta data (${formatDataBR(filtroData)}).</div>`
-          : (ultima
-            ? `<div class="mt-2 text-sm bg-amber-50 text-amber-900 border border-amber-200 rounded-lg px-3 py-2">Já retirou antes. Última: <strong>${formatDataBR(ultima.data_retirada)}</strong> — confira antes de entregar de novo.</div>`
-            : `<div class="mt-2 text-sm text-green-700">Sem retirada registrada ainda.</div>`);
 
         return `
           <div class="${fundo} rounded-xl shadow p-4 border-l-4 ${borda}">
@@ -4105,10 +4110,10 @@
                 ${p.celular ? `<div class="text-sm text-gray-700">📱 ${p.celular}</div>` : ''}
                 <div class="text-sm text-gray-600">${p.endereco || ''}${p.numero ? ', nº ' + p.numero : ''}</div>
                 <div class="text-sm text-gray-500">Pessoas na casa: ${p.qtd_pessoas != null ? p.qtd_pessoas : '—'}</div>
-                <div class="text-xs text-gray-400 mt-1">Retiradas: ${hist}</div>
+                <div class="text-xs text-gray-400 mt-1">Histórico de retiradas: ${hist}</div>
                 ${alerta}
                 <div class="flex flex-wrap gap-2 mt-3">
-                  <button type="button" onclick="registrarRetiradaUni('${p.id}')" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">Registrar retirada</button>
+                  ${btnRetirada}
                   <button type="button" onclick="editarUnisocial('${p.id}')" class="text-evg-blue text-sm hover:underline px-2">Editar</button>
                   ${isGestao ? `<button type="button" onclick="excluirUnisocial('${p.id}')" class="text-red-600 text-sm hover:underline px-2">Excluir</button>` : ''}
                 </div>
@@ -4258,6 +4263,36 @@
       if (document.getElementById('uni-filtro-data')) document.getElementById('uni-filtro-data').value = data;
       renderUnisocialLista();
       alert('Retirada registrada em ' + formatDataBR(data));
+    }
+
+    async function desfazerRetiradaUni(pessoaId) {
+      const p = unisocialPessoas.find(x => x.id === pessoaId);
+      if (!p) return;
+      const filtroData = document.getElementById('uni-filtro-data')?.value || '';
+      let alvo = null;
+      if (filtroData) {
+        alvo = unisocialRetiradas.find(r =>
+          r.pessoa_id === pessoaId && String(r.data_retirada).slice(0, 10) === filtroData
+        );
+      }
+      if (!alvo) {
+        const rets = retiradasDaPessoa(pessoaId);
+        alvo = rets[0] || null;
+      }
+      if (!alvo) {
+        alert('Não há retirada para desfazer.');
+        return;
+      }
+      const dataTxt = formatDataBR(alvo.data_retirada);
+      if (!confirm('Desfazer a retirada de "' + (p.nome || '') + '" em ' + dataTxt + '?\nA pessoa volta para pendente (cinza).')) return;
+      const { error } = await supabaseClient.from('unisocial_retiradas').delete().eq('id', alvo.id);
+      if (error) {
+        alert('Erro ao desfazer: ' + error.message);
+        return;
+      }
+      await carregarUnisocial();
+      renderUnisocialLista();
+      alert('Retirada desfeita. Status: pendente.');
     }
 
     function downloadUnisocialPDF() {
