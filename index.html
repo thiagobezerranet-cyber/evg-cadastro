@@ -127,6 +127,10 @@
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>📋</span> Relatórios dos Grupos
           </button>
+          <button onclick="showPage('melhorias')" data-page="melhorias"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>💡</span> Melhorias (confidencial)
+          </button>
           <button onclick="showPage('eventos')" data-page="eventos"
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>📅</span> Eventos / Pendências
@@ -1135,6 +1139,68 @@
         <div id="lista-relatorios-grupos" class="space-y-4"></div>
       </div>
 
+      <div id="page-melhoria-form" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Feedback do evento</h1>
+        <p class="text-sm text-gray-500 mb-4">Respostas <strong>confidenciais</strong>: só a coordenação geral lê.</p>
+        <div class="mb-4 max-w-3xl rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          Fale com sinceridade. O objetivo é aprender com o evento, não expor quem liderou no dia.
+        </div>
+        <div id="melhoria-sucesso" class="hidden mb-6 max-w-3xl rounded-xl border border-green-300 bg-green-50 p-5 shadow">
+          <p class="font-semibold text-green-800 text-lg">✅ Enviado com sucesso!</p>
+          <p class="text-sm text-green-700 mt-1">Obrigado. Sua resposta foi salva de forma confidencial.</p>
+        </div>
+        <form id="form-melhoria" class="bg-white rounded-xl shadow p-6 space-y-5 max-w-3xl">
+          <div>
+            <label class="block text-sm font-medium mb-1">Seu nome *</label>
+            <input type="text" id="mel-nome" required class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Como você se chama">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">O que deu certo? O que você manteria? *</label>
+            <textarea id="mel-certo" required rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="O que funcionou bem..."></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">O que deu errado? *</label>
+            <textarea id="mel-errado" required rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="O que não saiu como esperado..."></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">O que você faria diferente? *</label>
+            <textarea id="mel-diferente" required rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Se fosse de novo, o que mudaria..."></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Qual uma melhoria prática para a próxima? *</label>
+            <textarea id="mel-pratica" required rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Uma ação concreta e simples..."></textarea>
+          </div>
+          <button type="submit" class="bg-evg-blue hover:bg-evg-dark text-white px-6 py-2.5 rounded-lg font-medium">Enviar feedback</button>
+        </form>
+      </div>
+
+      <div id="page-melhorias" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Melhorias (confidencial)</h1>
+        <p class="text-sm text-gray-500 mb-2">Só gestão vê estas respostas.</p>
+        <div class="mb-4 max-w-3xl rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <strong>Link para enviar (só as perguntas):</strong>
+          <code id="mel-link-publico" class="block mt-1 text-xs break-all bg-white border rounded px-2 py-1"></code>
+          <button type="button" onclick="copiarLinkMelhoria()" class="mt-2 text-sm text-evg-blue hover:underline">Copiar link</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+          <div>
+            <label class="text-sm text-gray-600">Mês</label>
+            <select id="mel-filtro-mes" class="block px-3 py-2 border rounded-lg text-sm" onchange="renderMelhorias()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600">Grupo</label>
+            <select id="mel-filtro-grupo" class="block px-3 py-2 border rounded-lg text-sm" onchange="renderMelhorias()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <button type="button" onclick="showPage('melhoria-form')" class="text-sm border border-evg-blue text-evg-blue px-3 py-2 rounded-lg self-end">Abrir formulário</button>
+        </div>
+        <div id="mel-resumo" class="text-sm text-gray-600 mb-3"></div>
+        <div id="lista-melhorias" class="space-y-4 max-w-3xl"></div>
+      </div>
+
       <!-- EVENTOS / PENDÊNCIAS (só gestão) -->
       <div id="page-eventos" class="page hidden">
         <h1 class="text-2xl font-bold text-evg-blue mb-2">Eventos / Pendências</h1>
@@ -1609,6 +1675,12 @@
         return q.get('contagem') === '1';
       } catch (e) { return false; }
     })();
+    const MODO_PUBLICO_MELHORIA = (() => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        return q.get('melhoria') === '1' || q.get('feedback') === '1';
+      } catch (e) { return false; }
+    })();
 
     const PROJETOS = [
       'Secretária',
@@ -1641,6 +1713,7 @@
     let nucleoVolSelecionados = [];
     let unisocialPessoas = [];
     let unisocialRetiradas = [];
+    let feedbackMelhorias = [];
     let contagens = [];
     let voluntarioAtualId = null;
     let almasLinhaSeq = 0;
@@ -1908,12 +1981,22 @@
       if (sub) sub.textContent = 'Cadastre e consulte pessoas da cesta básica. Não é necessário login.';
     }
 
+    async function iniciarModoPublicoMelhoria() {
+      usuarioLogado = { nome: 'Participante', tipo: 'coordenador', role: 'Link feedback', publico: true };
+      esconderChromePublico();
+      showPage('melhoria-form');
+      const titulo = document.querySelector('#page-melhoria-form h1');
+      if (titulo) titulo.textContent = 'Feedback do evento — EVG';
+    }
+
     if (MODO_PUBLICO_RELATORIO) {
       iniciarModoPublicoRelatorio();
     } else if (MODO_PUBLICO_NUCLEOS) {
       iniciarModoPublicoNucleos();
     } else if (MODO_PUBLICO_UNISOCIAL) {
       iniciarModoPublicoUnisocial();
+    } else if (MODO_PUBLICO_MELHORIA) {
+      iniciarModoPublicoMelhoria();
     } else if (MODO_PUBLICO_CONTAGEM) {
       // Inicia no final do arquivo (ver iniciarContagemPublicaFinal)
       window.__abrirContagemPublica = true;
@@ -2006,6 +2089,27 @@
       if (page === 'unisocial') {
         limparFormUnisocial();
         renderUnisocialLista();
+      }
+      if (page === 'melhorias') {
+        const linkEl = document.getElementById('mel-link-publico');
+        if (linkEl) {
+          try {
+            const u = new URL(window.location.href);
+            let p = u.pathname;
+            if (p.endsWith('index.html')) p = p.slice(0, -10);
+            if (p.endsWith('/')) p = p.slice(0, -1);
+            linkEl.textContent = u.origin + p + '?melhoria=1';
+          } catch (e) {
+            linkEl.textContent = '?melhoria=1';
+          }
+        }
+        preencherSelectMelhoriaGrupos();
+        carregarMelhorias().then(() => renderMelhorias());
+      }
+      if (page === 'melhoria-form') {
+        preencherSelectMelhoriaGrupos();
+        const ok = document.getElementById('melhoria-sucesso');
+        if (ok) ok.classList.add('hidden');
       }
       if (page === 'contagem') {
         limparFormContagem();
@@ -5120,7 +5224,8 @@
       'nucleos',
       'contagem_reunioes',
       'unisocial_pessoas',
-      'unisocial_retiradas'
+      'unisocial_retiradas',
+      'feedback_melhorias'
     ];
 
     function backupSetStatus(msg, isError) {
@@ -5247,6 +5352,168 @@
         backupSetStatus('Erro: ' + (err.message || err), true);
       }
     }
+
+
+    // ===================== MELHORIAS / FEEDBACK CONFIDENCIAL =====================
+    function preencherSelectMelhoriaGrupos() {
+      const sel = document.getElementById('mel-grupo');
+      const filtro = document.getElementById('mel-filtro-grupo');
+      const opts = '<option value="">' + (sel ? 'Selecione (opcional)' : 'Todos') + '</option>' +
+        (typeof PROJETOS !== 'undefined' ? PROJETOS : []).map(p => `<option value="${p}">${p}</option>`).join('');
+      if (sel) {
+        const v = sel.value;
+        sel.innerHTML = opts;
+        if (v) sel.value = v;
+      }
+      if (filtro) {
+        const v = filtro.value;
+        filtro.innerHTML = '<option value="">Todos</option>' +
+          (typeof PROJETOS !== 'undefined' ? PROJETOS : []).map(p => `<option value="${p}">${p}</option>`).join('');
+        if (v) filtro.value = v;
+      }
+    }
+
+    function copiarLinkMelhoria() {
+      const el = document.getElementById('mel-link-publico');
+      const t = el ? el.textContent : '';
+      if (!t) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t).then(() => alert('Link copiado!')).catch(() => prompt('Copie o link:', t));
+      } else {
+        prompt('Copie o link:', t);
+      }
+    }
+
+    async function carregarMelhorias() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('feedback_melhorias')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) {
+          console.error('Erro feedback_melhorias:', error);
+          feedbackMelhorias = [];
+          return;
+        }
+        feedbackMelhorias = data || [];
+      } catch (e) {
+        console.error(e);
+        feedbackMelhorias = [];
+      }
+    }
+
+    function renderMelhorias() {
+      const container = document.getElementById('lista-melhorias');
+      const resumo = document.getElementById('mel-resumo');
+      if (!container) return;
+
+      const filtroMes = document.getElementById('mel-filtro-mes')?.value || '';
+      const filtroGrupo = document.getElementById('mel-filtro-grupo')?.value || '';
+
+      // opções de mês
+      const selMes = document.getElementById('mel-filtro-mes');
+      if (selMes) {
+        const atual = selMes.value;
+        const meses = [...new Set(
+          (feedbackMelhorias || []).map(r => {
+            const d = r.data_evento || r.created_at;
+            return d ? String(d).slice(0, 7) : '';
+          }).filter(Boolean)
+        )].sort().reverse();
+        selMes.innerHTML = '<option value="">Todos</option>' + meses.map(m => {
+          const [y, mo] = m.split('-');
+          const label = (typeof mesLabel === 'function') ? mesLabel(m) : (mo + '/' + y);
+          return `<option value="${m}">${label}</option>`;
+        }).join('');
+        if ([...selMes.options].some(o => o.value === atual)) selMes.value = atual;
+      }
+
+      let lista = [...(feedbackMelhorias || [])];
+      if (filtroMes) {
+        lista = lista.filter(r => {
+          const d = r.data_evento || r.created_at;
+          return d && String(d).slice(0, 7) === filtroMes;
+        });
+      }
+      if (filtroGrupo) {
+        lista = lista.filter(r => (r.grupo || '') === filtroGrupo);
+      }
+
+      if (resumo) resumo.innerHTML = `<strong>${lista.length}</strong> feedback(s) confidencial(is)`;
+
+      if (!lista.length) {
+        container.innerHTML = '<p class="text-gray-500 bg-white rounded-xl shadow p-6">Nenhum feedback ainda. Envie o link após o evento.</p>';
+        return;
+      }
+
+      const isGestao = usuarioLogado && usuarioLogado.tipo === 'gestao';
+      container.innerHTML = lista.map(r => {
+        const dataEvt = r.data_evento ? formatDataBR(r.data_evento) : '—';
+        const quando = r.created_at ? new Date(r.created_at).toLocaleString('pt-BR') : '';
+        return `
+          <div class="bg-white rounded-xl shadow p-5 border-l-4 border-purple-500">
+            <div class="flex flex-wrap justify-between gap-2 mb-3">
+              <div>
+                <div class="font-semibold text-evg-blue">${r.nome || '—'}</div>
+                <div class="text-xs text-gray-400">Enviado: ${quando}</div>
+              </div>
+              ${isGestao ? `<button type="button" onclick="excluirMelhoria('${r.id}')" class="text-red-600 text-sm hover:underline">Excluir</button>` : ''}
+            </div>
+            <div class="space-y-3 text-sm">
+              <div><span class="font-medium text-green-800">Deu certo / manteria:</span><p class="text-gray-700 whitespace-pre-wrap mt-0.5">${r.deu_certo || '—'}</p></div>
+              <div><span class="font-medium text-red-800">Deu errado:</span><p class="text-gray-700 whitespace-pre-wrap mt-0.5">${r.deu_errado || '—'}</p></div>
+              <div><span class="font-medium text-amber-800">Faria diferente:</span><p class="text-gray-700 whitespace-pre-wrap mt-0.5">${r.faria_diferente || '—'}</p></div>
+              <div><span class="font-medium text-evg-blue">Melhoria prática:</span><p class="text-gray-700 whitespace-pre-wrap mt-0.5">${r.melhoria_pratica || '—'}</p></div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    async function excluirMelhoria(id) {
+      if (!confirm('Excluir este feedback?')) return;
+      const { error } = await supabaseClient.from('feedback_melhorias').delete().eq('id', id);
+      if (error) {
+        alert('Erro ao excluir: ' + error.message);
+        return;
+      }
+      await carregarMelhorias();
+      renderMelhorias();
+    }
+
+    document.getElementById('form-melhoria')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nome = (document.getElementById('mel-nome')?.value || '').trim();
+      const deuCerto = (document.getElementById('mel-certo')?.value || '').trim();
+      const deuErrado = (document.getElementById('mel-errado')?.value || '').trim();
+      const faria = (document.getElementById('mel-diferente')?.value || '').trim();
+      const pratica = (document.getElementById('mel-pratica')?.value || '').trim();
+      if (!nome || !deuCerto || !deuErrado || !faria || !pratica) {
+        alert('Preencha nome e as quatro perguntas.');
+        return;
+      }
+      const { error } = await supabaseClient.from('feedback_melhorias').insert([{
+        nome,
+        deu_certo: deuCerto,
+        deu_errado: deuErrado,
+        faria_diferente: faria,
+        melhoria_pratica: pratica
+      }]);
+      if (error) {
+        alert('Erro ao enviar: ' + error.message + '\\n\\nSe a tabela ainda não existe, rode o SQL no Supabase.');
+        return;
+      }
+      const form = document.getElementById('form-melhoria');
+      if (form) form.reset();
+      const ok = document.getElementById('melhoria-sucesso');
+      if (ok) {
+        ok.classList.remove('hidden');
+        ok.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      if (usuarioLogado && usuarioLogado.tipo === 'gestao' && !usuarioLogado.publico) {
+        await carregarMelhorias();
+      }
+    });
+
 
     // ===================== PARTICIPAÇÕES =====================
     const PART_EXCLUIDOS = [
