@@ -103,6 +103,10 @@
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>👥</span> Voluntários
           </button>
+          <button onclick="showPage('aniversarios')" data-page="aniversarios"
+                  class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
+            <span>🎂</span> Aniversários
+          </button>
           <button onclick="showPage('participacoes')" data-page="participacoes"
                   class="sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left text-sm hover:bg-white/10 transition">
             <span>📊</span> Participações
@@ -422,6 +426,46 @@
       </div>
 
       <!-- PARTICIPAÇÕES (matriz voluntário × projeto) -->
+      <div id="page-aniversarios" class="page hidden">
+        <h1 class="text-2xl font-bold text-evg-blue mb-2">Aniversários do mês</h1>
+        <p class="text-sm text-gray-500 mb-6">Veja quem faz aniversário no mês e envie mensagem no WhatsApp.</p>
+
+        <div class="bg-white rounded-xl shadow p-4 mb-6 max-w-3xl flex flex-wrap gap-3 items-end">
+          <div>
+            <label class="block text-sm font-medium mb-1">Mês</label>
+            <select id="aniv-mes" class="px-3 py-2 border rounded-lg text-sm" onchange="renderAniversarios()">
+              <option value="1">Janeiro</option>
+              <option value="2">Fevereiro</option>
+              <option value="3">Março</option>
+              <option value="4">Abril</option>
+              <option value="5">Maio</option>
+              <option value="6">Junho</option>
+              <option value="7">Julho</option>
+              <option value="8">Agosto</option>
+              <option value="9">Setembro</option>
+              <option value="10">Outubro</option>
+              <option value="11">Novembro</option>
+              <option value="12">Dezembro</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Mostrar</label>
+            <select id="aniv-filtro" class="px-3 py-2 border rounded-lg text-sm" onchange="renderAniversarios()">
+              <option value="ativos">Só ativos</option>
+              <option value="todos">Todos</option>
+            </select>
+          </div>
+          <div class="flex-1 min-w-[160px]">
+            <label class="block text-sm font-medium mb-1">Mensagem modelo</label>
+            <input type="text" id="aniv-msg" class="w-full px-3 py-2 border rounded-lg text-sm"
+              value="Feliz aniversário, {nome}! Que Deus te abençoe hoje e sempre. 🎂🙏">
+          </div>
+        </div>
+
+        <div id="aniv-resumo" class="text-sm text-gray-600 mb-3"></div>
+        <div id="lista-aniversarios" class="space-y-3 max-w-3xl"></div>
+      </div>
+
       <div id="page-participacoes" class="page hidden">
         <h1 class="text-2xl font-bold text-evg-blue mb-2">Participações</h1>
         <p class="text-sm text-gray-500 mb-4">Quem foi em cada trabalho, conforme os relatórios dos coordenadores.</p>
@@ -2044,6 +2088,14 @@
       try { fecharMenuMobile(); } catch (e) {}
 
       if (page === 'voluntarios') renderTabela();
+      if (page === 'aniversarios') {
+        const sel = document.getElementById('aniv-mes');
+        if (sel && !sel.dataset.ready) {
+          sel.value = String(new Date().getMonth() + 1);
+          sel.dataset.ready = '1';
+        }
+        renderAniversarios();
+      }
       if (page === 'dashboard') atualizarDashboard();
       if (page === 'novo' && !isEdit) {
         // Só limpa o formulário quando for um NOVO cadastro
@@ -5513,6 +5565,115 @@
         await carregarMelhorias();
       }
     });
+
+
+
+    // ===================== ANIVERSÁRIOS =====================
+    const MESES_PT = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    function parseNascimentoParts(iso) {
+      if (!iso) return null;
+      const s = String(iso).slice(0, 10);
+      const p = s.split('-');
+      if (p.length !== 3) return null;
+      const y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+      if (!m || !d) return null;
+      return { y, m, d };
+    }
+
+    function telefoneParaWhatsApp(tel) {
+      let d = String(tel || '').replace(/\D/g, '');
+      if (!d) return '';
+      if (d.length <= 11 && !d.startsWith('55')) d = '55' + d;
+      return d;
+    }
+
+    function idadeNoAniversario(anoNasc, mesNasc, diaNasc, anoRef) {
+      if (!anoNasc || anoNasc < 1900) return null;
+      return anoRef - anoNasc;
+    }
+
+    function renderAniversarios() {
+      const container = document.getElementById('lista-aniversarios');
+      const resumo = document.getElementById('aniv-resumo');
+      if (!container) return;
+
+      const mes = parseInt(document.getElementById('aniv-mes')?.value || (new Date().getMonth() + 1), 10);
+      const filtro = document.getElementById('aniv-filtro')?.value || 'ativos';
+      const msgTpl = document.getElementById('aniv-msg')?.value || 'Feliz aniversário, {nome}!';
+      const anoAtual = new Date().getFullYear();
+      const hoje = new Date();
+      const diaHoje = hoje.getDate();
+      const mesHoje = hoje.getMonth() + 1;
+
+      let lista = (voluntarios || []).filter(v => {
+        if (!v || !v.nome) return false;
+        if (filtro === 'ativos' && !isAtivo(v)) return false;
+        const n = parseNascimentoParts(v.nascimento);
+        return n && n.m === mes;
+      });
+
+      lista = lista.map(v => {
+        const n = parseNascimentoParts(v.nascimento);
+        return {
+          ...v,
+          _dia: n.d,
+          _ano: n.y,
+          _idade: idadeNoAniversario(n.y, n.m, n.d, anoAtual)
+        };
+      }).sort((a, b) => a._dia - b._dia || (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+
+      if (resumo) {
+        const noMes = lista.length;
+        const hojeCount = (mes === mesHoje) ? lista.filter(v => v._dia === diaHoje).length : 0;
+        resumo.innerHTML = `<strong>${noMes}</strong> aniversariante(s) em <strong>${MESES_PT[mes]}</strong>` +
+          (hojeCount ? ` · <span class="text-evg-red font-medium">${hojeCount} hoje</span>` : '');
+      }
+
+      if (!lista.length) {
+        container.innerHTML = `<p class="text-gray-500 bg-white rounded-xl shadow p-6">Nenhum aniversariante em ${MESES_PT[mes]} com data de nascimento preenchida.</p>`;
+        return;
+      }
+
+      container.innerHTML = lista.map(v => {
+        const isHoje = mes === mesHoje && v._dia === diaHoje;
+        const tel = telefoneParaWhatsApp(v.telefone);
+        const primeiroNome = String(v.nome || '').trim().split(/\s+/)[0] || '';
+        const msg = msgTpl.replace(/\{nome\}/gi, primeiroNome).replace(/\{nomecompleto\}/gi, v.nome || '');
+        const waUrl = tel ? ('https://wa.me/' + tel + '?text=' + encodeURIComponent(msg)) : '';
+        const idadeTxt = v._idade != null ? (v._idade + ' anos') : '';
+        const borda = isHoje ? 'border-pink-500 bg-pink-50' : 'border-evg-blue bg-white';
+
+        return `
+          <div class="rounded-xl shadow p-4 border-l-4 ${borda}">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-evg-blue text-white font-bold text-sm">${String(v._dia).padStart(2,'0')}</span>
+                  <div>
+                    <div class="font-semibold text-evg-blue">${v.nome || '—'}${isHoje ? ' <span class="text-pink-600 text-xs">· HOJE</span>' : ''}</div>
+                    <div class="text-sm text-gray-600">${idadeTxt}${v.projeto_principal ? ' · ' + v.projeto_principal : ''}${v.funcao_evg ? ' · ' + v.funcao_evg : ''}</div>
+                    <div class="text-sm text-gray-500">📱 ${v.telefone || 'sem telefone'}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                ${waUrl ? `<a href="${waUrl}" target="_blank" rel="noopener" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded-lg">WhatsApp</a>` : '<span class="text-xs text-gray-400 self-center">Sem telefone</span>'}
+                ${tel ? `<button type="button" data-msg="${msg.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" onclick="copiarMsgAniv(this.getAttribute('data-msg'))" class="border text-sm px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-50">Copiar msg</button>` : ''}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function copiarMsgAniv(msg) {
+      const t = String(msg || '');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t).then(() => alert('Mensagem copiada!')).catch(() => prompt('Copie:', t));
+      } else {
+        prompt('Copie:', t);
+      }
+    }
 
 
     // ===================== PARTICIPAÇÕES =====================
