@@ -468,7 +468,7 @@
 
       <div id="page-participacoes" class="page hidden">
         <h1 class="text-2xl font-bold text-evg-blue mb-2">Participações</h1>
-        <p class="text-sm text-gray-500 mb-4">Quem foi em cada trabalho, conforme os relatórios dos coordenadores.</p>
+        <p class="text-sm text-gray-500 mb-4">Quem da EVG participou em cada trabalho (relatórios + núcleos). Só entram nomes cadastrados no sistema.</p>
 
         <div class="bg-white rounded-xl shadow p-4 mb-4 flex flex-wrap gap-3 items-end">
           <div>
@@ -5704,7 +5704,9 @@
       'evg ao pe da cruz': 'Pé da cruz',
       'núcleo no lar': 'Núcleo lar',
       'nucleo no lar': 'Núcleo lar',
-      'unisocial': 'Unisocial'
+      'unisocial': 'Unisocial',
+      'núcleos': 'Núcleos',
+      'nucleos': 'Núcleos'
     };
 
     function partNorm(s) {
@@ -5852,14 +5854,14 @@
       const filtroAte = document.getElementById('part-ate')?.value || '';
       const modo = document.getElementById('part-modo')?.value || 'participaram';
 
-      // Preenche opções de mês a partir dos relatórios
+      // Meses: relatórios de grupo + núcleos
       const selMes = document.getElementById('part-mes');
       if (selMes) {
         const atual = selMes.value;
-        const meses = [...new Set(
-          (relatoriosGrupos || []).map(r => r.mes || (r.data_evento ? String(r.data_evento).slice(0, 7) : '')).filter(Boolean)
-        )].sort().reverse();
-        // inclui mês atual se ainda não tiver relatório
+        const meses = [...new Set([
+          ...(relatoriosGrupos || []).map(r => r.mes || (r.data_evento ? String(r.data_evento).slice(0, 7) : '')),
+          ...(nucleosRegistros || []).map(r => r.mes || (r.data_semana ? String(r.data_semana).slice(0, 7) : ''))
+        ].filter(Boolean))].sort().reverse();
         const agora = new Date();
         const mesAgora = agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0');
         if (!meses.includes(mesAgora)) meses.unshift(mesAgora);
@@ -5869,17 +5871,20 @@
         if (meses.includes(atual) || atual === '') selMes.value = atual;
       }
 
-      // Colunas: projetos que aparecem e não estão excluídos (+ ordem fixa preferencial)
+      // Colunas: projetos + Núcleos
       const ordemPref = [
         'Ponto de fé', 'Ponto de oração', 'Guardiões da estrada', 'Anjos da Madrugada',
-        'Bom Samaritano', 'Consolador', 'EVG ao pé da cruz', 'Núcleo no lar', 'Unisocial'
+        'Bom Samaritano', 'Consolador', 'EVG ao pé da cruz', 'Núcleo no lar', 'Unisocial', 'Núcleos'
       ];
       const gruposSet = new Set();
       (relatoriosGrupos || []).forEach(r => {
         const g = (r.grupo || '').trim();
         if (g && !partExcluido(g)) gruposSet.add(g);
       });
-      // mantém nome canônico quando possível
+      // Sempre oferece coluna Núcleos se houver algum registro (ou deixa fixa na ordem)
+      if ((nucleosRegistros || []).length > 0) gruposSet.add('Núcleos');
+      else gruposSet.add('Núcleos'); // coluna fixa para o bloco existir
+
       let colunas = ordemPref.filter(g => {
         const n = partNorm(g);
         return [...gruposSet].some(x => partNorm(x) === n);
@@ -5887,8 +5892,9 @@
       [...gruposSet].forEach(g => {
         if (!colunas.some(c => partNorm(c) === partNorm(g))) colunas.push(g);
       });
-      // se ainda vazio, mostra colunas preferenciais mesmo sem dados
       if (colunas.length === 0) colunas = [...ordemPref];
+      // Garante Núcleos no final se não estiver
+      if (!colunas.some(c => partNorm(c) === 'nucleos')) colunas.push('Núcleos');
 
       theadRow.innerHTML =
         '<th class="text-left px-3 py-3 font-semibold text-evg-blue whitespace-nowrap sticky left-0 bg-gray-50 z-10">Nome</th>' +
@@ -5896,10 +5902,48 @@
           `<th class="text-center px-2 py-3 font-semibold text-evg-blue whitespace-nowrap text-xs" title="${g}">${partAbrev(g)}</th>`
         ).join('');
 
-      // matriz: chaveNome -> { display, variants, grupos: { gk: Set datas } }
+      // matriz: só nomes cadastrados na EVG
       const matriz = {};
-      const nomesQueParticiparam = []; // nomes brutos + limpos para cruzar com cadastro
+      const nomesQueParticiparam = [];
       let relsFiltrados = 0;
+
+      function partRegistrar(nomeRaw, grupo, dataIso) {
+        if (!nomeRaw || !grupo) return;
+        // Só entra em Participações se existir no cadastro de voluntários
+        const vol = partAcharVoluntarioCadastro(nomeRaw);
+        if (!vol) return;
+
+        const chave = partAcharChaveMatriz(matriz, vol.nome || nomeRaw);
+        if (!chave) return;
+        nomesQueParticiparam.push(vol.nome || nomeRaw);
+
+        if (busca) {
+          const b = partNorm(busca);
+          const okBusca =
+            chave.includes(b) ||
+            partNorm(vol.nome || '').includes(b) ||
+            String(nomeRaw).toLowerCase().includes(busca) ||
+            partNomeChave(nomeRaw).includes(b);
+          if (!okBusca) return;
+        }
+
+        if (!matriz[chave]) {
+          matriz[chave] = {
+            display: vol.nome || partNomeDisplay(nomeRaw),
+            variants: new Set(),
+            grupos: {}
+          };
+        }
+        matriz[chave].variants.add(String(nomeRaw).trim());
+        if (vol.nome) matriz[chave].display = vol.nome;
+
+        const gk = partNorm(grupo);
+        if (!matriz[chave].grupos[gk]) matriz[chave].grupos[gk] = new Set();
+        if (dataIso) matriz[chave].grupos[gk].add(dataIso);
+        else matriz[chave].grupos[gk].add('—');
+      }
+
+      // 1) Relatórios de grupos / projetos
       (relatoriosGrupos || []).forEach(r => {
         const grupo = (r.grupo || '').trim();
         if (!grupo || partExcluido(grupo)) return;
@@ -5909,34 +5953,19 @@
         if (filtroDe && dataIso && dataIso < filtroDe) return;
         if (filtroAte && dataIso && dataIso > filtroAte) return;
         relsFiltrados++;
-        partListaVoluntarios(r).forEach(nomeRaw => {
-          const chave = partAcharChaveMatriz(matriz, nomeRaw);
-          if (!chave) return;
-          nomesQueParticiparam.push(nomeRaw);
-          if (busca && !chave.includes(partNorm(busca)) && !String(nomeRaw).toLowerCase().includes(busca) && !partNomeChave(nomeRaw).includes(partNorm(busca))) return;
-          if (!matriz[chave]) {
-            matriz[chave] = {
-              display: partNomeDisplay(nomeRaw),
-              variants: new Set(),
-              grupos: {}
-            };
-          }
-          matriz[chave].variants.add(String(nomeRaw).trim());
-          const vol = partAcharVoluntarioCadastro(nomeRaw);
-          if (vol && vol.nome) {
-            matriz[chave].display = vol.nome;
-          } else {
-            // Prefere o nome mais completo entre as variantes
-            const limpo = partNomeLimpo(nomeRaw);
-            if (limpo.length > partNomeLimpo(matriz[chave].display).length) {
-              matriz[chave].display = partNomeDisplay(limpo);
-            }
-          }
-          const gk = partNorm(grupo);
-          if (!matriz[chave].grupos[gk]) matriz[chave].grupos[gk] = new Set();
-          if (dataIso) matriz[chave].grupos[gk].add(dataIso);
-          else matriz[chave].grupos[gk].add('—');
-        });
+        partListaVoluntarios(r).forEach(nomeRaw => partRegistrar(nomeRaw, grupo, dataIso));
+      });
+
+      // 2) Núcleos (bloco próprio)
+      (nucleosRegistros || []).forEach(r => {
+        const dataIso = r.data_semana ? String(r.data_semana).slice(0, 10)
+          : (r.created_at ? String(r.created_at).slice(0, 10) : '');
+        const mes = r.mes || (dataIso ? dataIso.slice(0, 7) : '');
+        if (filtroMes && mes !== filtroMes) return;
+        if (filtroDe && dataIso && dataIso < filtroDe) return;
+        if (filtroAte && dataIso && dataIso > filtroAte) return;
+        relsFiltrados++;
+        partListaVoluntarios(r).forEach(nomeRaw => partRegistrar(nomeRaw, 'Núcleos', dataIso));
       });
 
       // ----- MODO: quem NÃO participou -----
@@ -6000,8 +6029,8 @@
       }
 
       if (resumo) {
-        resumo.innerHTML = `<strong>${chaves.length}</strong> voluntário(s) · <strong>${relsFiltrados}</strong> relatório(s) no filtro
-          <span class="text-xs text-gray-400 ml-2">(Obr + maiúsculas/minúsculas unificados · Thiago ≠ Tiago)</span>`;
+        resumo.innerHTML = `<strong>${chaves.length}</strong> voluntário(s) cadastrado(s) · <strong>${relsFiltrados}</strong> relatório(s)/núcleo(s) no filtro
+          <span class="text-xs text-gray-400 ml-2">(só nomes do cadastro EVG · inclui Núcleos · Thiago ≠ Tiago)</span>`;
       }
 
       if (chaves.length === 0) {
